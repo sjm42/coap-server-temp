@@ -68,10 +68,13 @@ impl Tbuf {
             buf: Vec::new(),
         }
     }
+    pub fn len(&self) -> usize {
+        self.buf.len()
+    }
     pub fn add(&mut self, d: Tdata) {
         self.buf.push(d);
-        self.expire();
         self.upd_avg();
+        // data expiration is handled in a separate thread
     }
     pub fn avg5(&self) -> f32 {
         self.avg5
@@ -79,7 +82,22 @@ impl Tbuf {
     pub fn avg15(&self) -> f32 {
         self.avg15
     }
-    fn upd_avg(&mut self) {
+    pub fn expire(&mut self) -> bool {
+        let now = SystemTime::now();
+        let expiration = now.checked_sub(Duration::from_secs(self.expire)).unwrap();
+        let mut changed = false;
+        while self.buf.len() > 0 {
+            if self.buf[0].ts < expiration {
+                changed = true;
+                let _exp_data = self.buf.remove(0);
+                // mylog(&format!("Tbuf expired tdata: {:?}", _exp_data));
+            }
+            else { break; }
+        }
+        // mylog(&format!("(tbuf expire)Tbuf len: {}", self.buf.len()));
+        changed
+    }
+    pub fn upd_avg(&mut self) {
         let mut n5: u32 = 0;
         let mut sum5: f32 = 0.0;
         let mut n15: u32 = 0;
@@ -102,18 +120,6 @@ impl Tbuf {
         }
         self.avg5 = sum5 / n5 as f32;
         self.avg15 = sum15 / n15 as f32;
-    }
-    fn expire(&mut self) {
-        let now = SystemTime::now();
-        let expiration = now.checked_sub(Duration::from_secs(self.expire)).unwrap();
-        while self.buf.len() > 0 {
-            if self.buf[0].ts < expiration {
-                let _exp_data = self.buf.remove(0);
-                // mylog(&format!("Tbuf expired tdata: {:?}", _exp_data));
-            }
-            else { break; }
-        }
-        // mylog(&format!("(tbuf expire)Tbuf len: {}", self.buf.len()));
     }
 }
 // EOF

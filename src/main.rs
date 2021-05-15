@@ -4,11 +4,12 @@
 
 extern crate lazy_static;
 extern crate coap;
+extern crate chrono;
 
-use std::{lazy::SyncLazy, sync::Mutex};
-use std::collections::HashMap;
+use std::{collections::HashMap, lazy::*, sync::*, thread, time};
 use lazy_static::lazy_static;
 
+use chrono::prelude::*;
 use coap_lite::{RequestType as Method};
 use coap::Server;
 use tokio::runtime::Runtime;
@@ -17,16 +18,18 @@ mod utils;
 use utils::tbuf::*;
 use utils::util::*;
 
-const OUT_SENSOR: &str = "28F41A2800008091";
 
+#[allow(dead_code)]
+const DB_UPDATE_RATE: i64 = 60;
+const DEFAULT_OUTSENSOR: &str = "28F41A2800008091";
 
-// This is scary.
 type SensorData = HashMap<String, Tbuf>;
 static SDATA: SyncLazy<Mutex<SensorData>> = SyncLazy::new(|| Mutex::new(SensorData::new()));
+static OUTSENSOR: SyncLazy<Mutex<String>> = SyncLazy::new(|| Mutex::new(String::new()));
 
 
 fn resp_store_temp(payload: Option<&str>) -> String {
-    // mylog(&format!("Store temp! payload={}", payload.unwrap_or(&"<none>".to_string())));
+    // mylog(&format!("store_temp payload={}", payload.unwrap_or(&"<none>".to_string())));
     match payload {
         None => {
             return "NO DATA".to_string();
@@ -57,22 +60,37 @@ fn resp_store_temp(payload: Option<&str>) -> String {
 }
 
 fn resp_list_sensors(_payload: Option<&str>) -> String {
-    // mylog(&format!("Sensor list! payload={}", _payload.unwrap_or(&"<none>".to_string())));
+    // mylog(&format!("list_sensors payload={}", _payload.unwrap_or(&"<none>".to_string())));
     let sd = SDATA.lock().unwrap();
-    let sensors = sd.keys().map(|s| &**s).collect::<Vec<_>>().join(" ");
-    mylog(&sensors);
-    sensors
+    let sensor_list = sd.keys().map(|s| &**s).collect::<Vec<_>>().join(" ");
+    mylog(&sensor_list);
+    sensor_list
 }
 
 fn resp_avg_out(_payload: Option<&str>) -> String {
-    // mylog(&format!("get avg! payload={}", _payload.unwrap_or(&String::from("<none>"))));
+    // mylog(&format!("avg_out payload={}", _payload.unwrap_or(&String::from("<none>"))));
+    let skey = OUTSENSOR.lock().unwrap();
     let sd = SDATA.lock().unwrap();
-    if !sd.contains_key(OUT_SENSOR) {
+    if !sd.contains_key(&*skey) {
         return "NO DATA".to_string()
     }
-    let a = format!("{:.2}", sd.get(OUT_SENSOR).unwrap().avg15());
-    mylog(&a);
-    a
+    let avg_out = format!("{:.2}", sd.get(&*skey).unwrap().avg15());
+    mylog(&avg_out);
+    avg_out
+}
+
+fn resp_set_outsensor(payload: Option<&str>) -> String {
+    // mylog(&format!("set_outsensor payload={}", payload.unwrap_or(&"<none>".to_string())));
+    match payload {
+        None => {
+            return "NO DATA".to_string();
+        },
+        Some(data) => {
+            let mut s = OUTSENSOR.lock().unwrap();
+            *s = data.to_string();
+            return "OK".to_string();
+        },
+    }
 }
 
 fn resp_dump(_payload: Option<&str>) -> String {
@@ -91,10 +109,44 @@ lazy_static! {
         m.insert("store_temp", resp_store_temp);
         m.insert("list_sensors", resp_list_sensors);
         m.insert("avg_out", resp_avg_out);
+        m.insert("set_outsensor", resp_set_outsensor);
         m.insert("dump", resp_dump);
         // INSERT MORE RESPONDER FUNCTION MAPPINGS HERE
         m
     };
+}
+
+// This is run in its own thread while program is running
+fn db_send() {
+    loop {
+        let now: DateTime<Utc> = Utc::now();
+        let waitsec = 60 - now.second();
+        thread::sleep(time::Duration::from_secs(waitsec as u64));
+        {
+            let _sd = SDATA.lock().unwrap();
+            // mylog(&format!("db_send"));
+            // TODO: Send data into InfluxBD here
+        }
+    }
+}
+
+// This is run in its own thread while program is running
+fn tbuf_expire() {
+    loop {
+        {
+            // mylog(&format!("buf_expire"));
+            let mut sd = SDATA.lock().unwrap();
+            for (sensorid, tbuf) in sd.iter_mut() {
+                let len1 = tbuf.len();
+                if tbuf.expire() { tbuf.upd_avg(); }
+                let n_exp = len1 - tbuf.len();
+                if n_exp > 0 {
+                    mylog(&format!("Expire: sensor {} n_exp={}", sensorid, n_exp));
+                }
+            }
+        }
+        thread::sleep(time::Duration::from_secs(10));
+    }
 }
 
 
@@ -104,8 +156,19 @@ fn main() {
     // Here we are triggering the lazy initializations
     let n_url = URLMAP.len();
     let _n_sensors = SDATA.lock().unwrap().len();
-
+    {
+        let mut s = OUTSENSOR.lock().unwrap();
+        *s = DEFAULT_OUTSENSOR.to_string();
+    }
     mylog(&format!("Have {} URL responders.", n_url));
+
+    // Spawn some housekeeping threads
+    let _thr_dbupdate = thread::spawn(|| {
+        db_send();
+    });
+    let _thr_tbuf_expire = thread::spawn(|| {
+        tbuf_expire();
+    });
 
     Runtime::new().unwrap().block_on(async move {
         let mut server = Server::new(addr).unwrap();
