@@ -8,7 +8,6 @@ extern crate coap;
 use std::{lazy::SyncLazy, sync::Mutex};
 use std::collections::HashMap;
 use lazy_static::lazy_static;
-use std::time::*;
 
 use coap_lite::{RequestType as Method};
 use coap::Server;
@@ -18,67 +17,81 @@ mod utils;
 use utils::tbuf::*;
 use utils::util::*;
 
+const OUT_SENSOR: &str = "28F41A2800008091";
+
 
 // This is scary.
-static TBUF: SyncLazy<Mutex<Vec<Tbuf>>> = SyncLazy::new(|| Mutex::new(vec![]));
+type SensorData = HashMap<String, Tbuf>;
+static SDATA: SyncLazy<Mutex<SensorData>> = SyncLazy::new(|| Mutex::new(SensorData::new()));
 
-fn resp_list_sensors(_payload: Option<&String>) -> String {
-    mylog(&format!("Sensor list! payload={}", _payload.unwrap_or(&String::from("<none>"))));
-    // NOT IMPLEMENTED YET
-    String::from("<sensorlist>")
-}
 
-fn resp_store_temp(payload: Option<&String>) -> String {
-    mylog(&format!("Store temp! payload={}", payload.unwrap_or(&String::from("<none>"))));
+fn resp_store_temp(payload: Option<&str>) -> String {
+    // mylog(&format!("Store temp! payload={}", payload.unwrap_or(&"<none>".to_string())));
     match payload {
         None => {
-            return String::from("NO DATA");
+            return "NO DATA".to_string();
         },
         Some(data) => {
             let indata: Vec<&str> = data.split_whitespace().collect();
-            if indata.len() < 2 {
-                return String::from("ILLEGAL DATA");
+            if indata.len() != 2 {
+                return "ILLEGAL DATA".to_string();
             }
             match indata[1].parse::<f32>() {
                 Err(_) => {
-                    return String::from("ILLEGAL DATA");
+                    return "ILLEGAL DATA".to_string();
                 },
                 Ok(temp) => {
-                    // indata[0] contains the sensor id -- not used just yet
-                    let mut dv = TBUF.lock().unwrap();
-                    mylog(&format!("TBUF len={}", dv.len()));
-                    for tbuf in &mut *dv {
-                        tbuf.add(Tdata { ts: SystemTime::now(), data: temp});
+                    let sensorid = indata[0];
+                    let mut sd = SDATA.lock().unwrap();
+                    if !sd.contains_key(sensorid) {
+                        let new_tbuf = Tbuf::new();
+                        sd.insert(sensorid.to_string(), new_tbuf);
                     }
-                    String::from("OK")
+                    let tbuf = sd.get_mut(sensorid).unwrap();
+                    tbuf.add(Tdata::new(temp));
+                    return "OK".to_string();
                 },
             }
         },
     }
 }
 
-fn resp_get_avg(_payload: Option<&String>) -> String {
-    mylog(&format!("get avg! payload={}", _payload.unwrap_or(&String::from("<none>"))));
-    let avg: f64;
-    {
-        let dv = TBUF.lock().unwrap();
-        let mut i = 0;
-        avg = dv[0].avg;
-        for tbuf in &*dv {
-            mylog(&format!("avg {} is {:.2}", i, tbuf.avg));
-            i += 1;
-        }
+fn resp_list_sensors(_payload: Option<&str>) -> String {
+    // mylog(&format!("Sensor list! payload={}", _payload.unwrap_or(&"<none>".to_string())));
+    let sd = SDATA.lock().unwrap();
+    let sensors = sd.keys().map(|s| &**s).collect::<Vec<_>>().join(" ");
+    mylog(&sensors);
+    sensors
+}
+
+fn resp_avg_out(_payload: Option<&str>) -> String {
+    // mylog(&format!("get avg! payload={}", _payload.unwrap_or(&String::from("<none>"))));
+    let sd = SDATA.lock().unwrap();
+    if !sd.contains_key(OUT_SENSOR) {
+        return "NO DATA".to_string()
     }
-    format!("{:.2}", avg)
+    let a = format!("{:.2}", sd.get(OUT_SENSOR).unwrap().avg15());
+    mylog(&a);
+    a
+}
+
+fn resp_dump(_payload: Option<&str>) -> String {
+    let sd = SDATA.lock().unwrap();
+    mylog(&format!("Have {} sensors.", sd.len()));
+    for (sensorid, tbuf) in sd.iter() {
+        mylog(&format!("sensor {} tbuf={:?}", sensorid, tbuf));
+    }
+    "OK".to_string()
 }
 
 lazy_static! {
-    static ref URLMAP: HashMap<String, fn(Option<&String>)->String> = {
+    static ref URLMAP: HashMap<&'static str, fn(Option<&str>)->String> = {
         // mylog(format!("URLMAP initializing"));
-        let mut m: HashMap<String, fn(Option<&String>)->String> = HashMap::new();
-        m.insert(String::from("list_sensors"), resp_list_sensors);
-        m.insert(String::from("store_temp"), resp_store_temp);
-        m.insert(String::from("get_avg"), resp_get_avg);
+        let mut m: HashMap<&'static str, fn(Option<&str>)->String> = HashMap::new();
+        m.insert("store_temp", resp_store_temp);
+        m.insert("list_sensors", resp_list_sensors);
+        m.insert("avg_out", resp_avg_out);
+        m.insert("dump", resp_dump);
         // INSERT MORE RESPONDER FUNCTION MAPPINGS HERE
         m
     };
@@ -89,12 +102,10 @@ fn main() {
     let addr = "127.0.0.1:5683";
 
     // Here we are triggering the lazy initializations
-    let _ = URLMAP.len();
-    {
-        let mut dv = TBUF.lock().unwrap();
-        dv.push(Tbuf::new(300));
-        dv.push(Tbuf::new(900));
-    }
+    let n_url = URLMAP.len();
+    let _n_sensors = SDATA.lock().unwrap().len();
+
+    mylog(&format!("Have {} URL responders.", n_url));
 
     Runtime::new().unwrap().block_on(async move {
         let mut server = Server::new(addr).unwrap();
@@ -105,9 +116,9 @@ fn main() {
             let mut resp = String::from("");
             let mut resp_code = "2.05";
 
-            match URLMAP.get(&url_path) {
+            match URLMAP.get(url_path.as_str()) {
                 None => {
-                    resp = String::from("NOT FOUND");
+                    resp = "NOT FOUND".to_string();
                     resp_code = "4.04";
                 },
                 Some(responder_f) => {
@@ -115,18 +126,20 @@ fn main() {
                         &Method::Get => {
                             mylog(&format!("GET /{}", url_path));
                             resp = responder_f(None);
+                            mylog(&format!("--> {}", resp))
                         },
                         &Method::Post => {
                             let payload_o = String::from_utf8(request.message.payload);
                             match payload_o {
                                 Err(e) => {
                                     mylog(&format!("UTF-8 decode error: {}", e));
-                                    resp = String::from("BAD REQUEST");
+                                    resp = "BAD REQUEST".to_string();
                                     resp_code = "4.00";
                                 },
                                 Ok(payload) => {
                                     mylog(&format!("POST /{} data: {}", url_path, payload));
                                     resp = responder_f(Some(&payload));
+                                    mylog(&format!("--> {}", resp))
                                 },
                             }
                         },
@@ -147,5 +160,4 @@ fn main() {
         }).await.unwrap();
     });
 }
-
 // EOF
