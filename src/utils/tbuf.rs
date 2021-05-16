@@ -92,7 +92,11 @@ impl Tbuf {
                 let _exp_data = self.buf.remove(0);
                 // mylog(&format!("Tbuf expired tdata: {:?}", _exp_data));
             }
-            else { break; }
+            else {
+                // The items are age ordered and thus can stop
+                // when first non-expired item is found
+                break;
+            }
         }
         // mylog(&format!("(tbuf expire)Tbuf len: {}", self.buf.len()));
         changed
@@ -102,6 +106,13 @@ impl Tbuf {
         let mut sum5: f32 = 0.0;
         let mut n15: u32 = 0;
         let mut sum15: f32 = 0.0;
+
+        // is it empty?
+        if self.buf.len() == 0 {
+            self.avg5 = f32::NAN;
+            self.avg15 = f32::NAN;
+            return;
+        }
 
         // create 5min and 15min expiration times
         let now = SystemTime::now();

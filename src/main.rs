@@ -5,6 +5,7 @@
 extern crate lazy_static;
 extern crate coap;
 extern crate chrono;
+extern crate influxdb_client;
 
 use std::{collections::HashMap, lazy::*, sync::*, thread, time};
 use lazy_static::lazy_static;
@@ -13,14 +14,17 @@ use chrono::prelude::*;
 use coap_lite::{RequestType as Method};
 use coap::Server;
 use tokio::runtime::Runtime;
+use influxdb_client::*;
 
 mod utils;
 use utils::tbuf::*;
 use utils::util::*;
 
 
-#[allow(dead_code)]
-const DB_UPDATE_RATE: i64 = 60;
+const DB_URL: &str = "http://asdf.example.com:8086";
+const DB_TOKEN: &str = "example-asdf-zxcv-example";
+const DB_ORG: &str = "siuro";
+const DB_BUCKET: &str = "temperature";
 const DEFAULT_OUTSENSOR: &str = "28F41A2800008091";
 
 type SensorData = HashMap<String, Tbuf>;
@@ -117,31 +121,17 @@ lazy_static! {
 }
 
 // This is run in its own thread while program is running
-fn db_send() {
-    loop {
-        let now: DateTime<Utc> = Utc::now();
-        let waitsec = 60 - now.second();
-        thread::sleep(time::Duration::from_secs(waitsec as u64));
-        {
-            let _sd = SDATA.lock().unwrap();
-            // mylog(&format!("db_send"));
-            // TODO: Send data into InfluxBD here
-        }
-    }
-}
-
-// This is run in its own thread while program is running
 fn tbuf_expire() {
     loop {
+        // mylog(&format!("buf_expire"));
         {
-            // mylog(&format!("buf_expire"));
             let mut sd = SDATA.lock().unwrap();
-            for (sensorid, tbuf) in sd.iter_mut() {
+            for (_sensorid, tbuf) in sd.iter_mut() {
                 let len1 = tbuf.len();
                 if tbuf.expire() { tbuf.upd_avg(); }
                 let n_exp = len1 - tbuf.len();
                 if n_exp > 0 {
-                    mylog(&format!("Expire: sensor {} n_exp={}", sensorid, n_exp));
+                    // mylog(&format!("Expired: sensor {} n_exp={}", _sensorid, n_exp));
                 }
             }
         }
@@ -149,9 +139,43 @@ fn tbuf_expire() {
     }
 }
 
+// This is run in its own thread while program is running
+fn db_send() {
+    let mut points = vec![];
+    loop {
+        // mylog(&format!("db_send"));
+        let now: DateTime<Utc> = Utc::now();
+        let waitsec = 60 - now.second();
+        thread::sleep(time::Duration::from_secs(waitsec as u64));
+
+        points.clear();
+        {
+            let sd = SDATA.lock().unwrap();
+            for (sensorid, tbuf) in sd.iter() {
+                // Only send updates if we have at least 3 values in buffer!
+                if tbuf.len() >= 3 {
+                    points.push(Point::new("temperature")
+                        .tag("sensor", sensorid.as_str())
+                        .field("value", tbuf.avg5() as f64));
+                }
+            }
+        }
+
+        // Only send if we have anything to send...
+        if points.len() > 0 {
+            mylog(&format!("IDB: {:?}", points));
+            let idbc = Client::new(DB_URL, DB_TOKEN)
+                .with_org(DB_ORG)
+                .with_bucket(DB_BUCKET)
+                .with_precision(Precision::S);
+            let _res = idbc.insert_points(&points, TimestampOptions::None);
+        }
+    }
+}
+
 
 fn main() {
-    let addr = "127.0.0.1:5683";
+    let addr = "0.0.0.0:5683";
 
     // Here we are triggering the lazy initializations
     let n_url = URLMAP.len();
@@ -163,11 +187,11 @@ fn main() {
     mylog(&format!("Have {} URL responders.", n_url));
 
     // Spawn some housekeeping threads
-    let _thr_dbupdate = thread::spawn(|| {
-        db_send();
-    });
     let _thr_tbuf_expire = thread::spawn(|| {
         tbuf_expire();
+    });
+    let _thr_db_send = thread::spawn(|| {
+        db_send();
     });
 
     Runtime::new().unwrap().block_on(async move {

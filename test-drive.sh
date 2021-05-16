@@ -3,7 +3,7 @@ set -x
 
 for k in asdf zxcv 28F41A2800008091
 do
-  for i in $(seq 3)
+  for i in $(seq 5)
   do
     r=$(rand -f -s $(dd status=none if=/dev/urandom bs=1 count=8 | sum | awk '{print $1}'))
     t=$(echo "$r*20"|bc)

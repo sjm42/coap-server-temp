@@ -13,6 +13,6 @@ tokio = {version = "0.2", features = ["full"]}
 tokio-util = {version = "0.2", features = ["codec", "udp"]}
 chrono = "0.4"
 lazy_static = "1.4"
-# influx_db_client = "0.5"
+influxdb-client = "0.1"
 
 # EOF
