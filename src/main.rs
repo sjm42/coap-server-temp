@@ -170,9 +170,15 @@ fn db_send() {
             mylog(&format!("IDB line data:\n{}", line_data));
 
             // Run the external influx command to write data.
+            // Here we assume that the user running this has the necessary InfluxDB client configs
+            // available in home directory, including URL, Organization and Token.
+
             // This is clumsy, but has to be done this way because influxdb2 compatible client libraries
             // seem to need a different version of tokio library than coap server lib
             // and thus we would end up in dependency hell.
+
+            // Luckily, this is only done once per minute, so it is not a performance issue.
+
             let mut p = Command::new(INFLUX).arg("write")
                 .arg("--precision").arg("s")
                 .arg("--bucket").arg(DB_BUCKET)
