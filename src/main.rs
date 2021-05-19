@@ -5,6 +5,7 @@
 extern crate lazy_static;
 extern crate coap;
 extern crate chrono;
+extern crate influxdb_client;
 
 use std::collections::HashMap;
 use std::lazy::*;
@@ -12,12 +13,15 @@ use std::process::{Command, Stdio};
 use std::sync::*;
 use std::thread;
 use std::time;
+use async_std::*;
 
 use chrono::prelude::*;
 use coap::Server;
 use coap_lite::{RequestType as Method};
 use lazy_static::lazy_static;
 use tokio::runtime::Runtime;
+// use influxdb_client::{Client, Point, Precision, TimestampOptions};
+use influxdb_client::*;
 
 mod utils;
 use utils::tbuf::*;
@@ -25,9 +29,15 @@ use utils::util::*;
 use std::io::Write;
 
 
-const DB_BUCKET: &str = "temperature";
 const DEFAULT_OUTSENSOR: &str = "28F41A2800008091";
-const INFLUX: &str = "/usr/bin/influx";
+const INFLUX_BINARY: &str = "/usr/bin/influx";
+const INFLUXDB_BUCKET: &str = "temperature";
+const INFLUXDB_MEASUREMENT: &str = "temperature";
+
+const INFLUXDB_URL: &str = "http://localhost:8086";
+const INFLUXDB_TOKEN: &str = "W1o2562R92QdkcGmZOGiMROv_JIb773tS_wskzUed7bLJuOVVJ9y2rBKvaY3r7zmzIK7flzyW1F6SlRTqsJDYw==";
+const INFLUXDB_ORG: &str = "siuro";
+
 
 type SensorData = HashMap<String, Tbuf>;
 static SDATA: SyncLazy<Mutex<SensorData>> = SyncLazy::new(|| Mutex::new(SensorData::new()));
@@ -141,8 +151,41 @@ fn tbuf_expire() {
     }
 }
 
-// This is run in its own thread while program is running
-fn db_send() {
+#[allow(dead_code)]
+fn influx_send_ext(data: &Vec<String>) {
+    // Run the external influx command to write data.
+    // Here we assume that the user running this has the necessary InfluxDB client configs
+    // available in home directory, including URL, Organization and Token.
+
+    // This is clumsy, but has to be done this way because influxdb2 compatible client libraries
+    // seem to need a different version of tokio library than coap server lib
+    // and thus we would end up in dependency hell.
+
+    // Luckily, this is only done once per minute, so it is not a performance issue.
+
+    let line_data = data.iter().map(|s| &**s).collect::<Vec<_>>().join("\n");
+    mylog(&format!("IDB line data:\n{}", line_data));
+
+    let mut p = Command::new(INFLUX_BINARY).arg("write")
+        .arg("--precision").arg("s")
+        .arg("--bucket").arg(INFLUXDB_BUCKET)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn().unwrap();
+    let p_in = p.stdin.as_mut().unwrap();
+    p_in.write_all(line_data.as_bytes()).unwrap();
+    let out = p.wait_with_output().unwrap();
+    if !out.status.success() || out.stdout.len() > 0 || out.stderr.len() > 0 {
+        mylog(&format!("influx command failed, exit status {}\nstderr:\n{}\nstdout:\n{}\n",
+                       out.status.code().unwrap(),
+                       String::from_utf8(out.stderr).unwrap(),
+                       String::from_utf8(out.stdout).unwrap()));
+    }
+}
+
+#[allow(dead_code)]
+fn db_send_ext() {
     let mut points = vec![];
     loop {
         let now = Utc::now();
@@ -158,43 +201,59 @@ fn db_send() {
             for (sensorid, tbuf) in sd.iter() {
                 // Only send updates if we have some values in buffer!
                 if tbuf.len() >= 3 {
-                    points.push(format!("temperature,sensor={} value={:.2} {}", sensorid, tbuf.avg5(), ts60));
+                    points.push(format!("{},sensor={} value={:.2} {}", INFLUXDB_MEASUREMENT, sensorid, tbuf.avg5(), ts60));
                 }
             }
         }
 
         // Only send if we have anything to send...
         if points.len() > 0 {
-            let line_data = points.iter().map(|s| &**s).collect::<Vec<_>>().join("\n");
             // mylog(&format!("IDB: {:?}", points));
-            mylog(&format!("IDB line data:\n{}", line_data));
+            influx_send_ext(&points);
+        }
+    }
+}
 
-            // Run the external influx command to write data.
-            // Here we assume that the user running this has the necessary InfluxDB client configs
-            // available in home directory, including URL, Organization and Token.
+// The Rust native influxdb client won't work, error message:
+// thread '<unnamed>' panicked at 'there is no reactor running, must be called from the context of a Tokio 1.x runtime',
+// /home/sjm/.cargo/registry/src/github.com-1ecc6299db9ec823/tokio-1.6.0/src/runtime/blocking/pool.rs:85:33
+#[allow(dead_code)]
+fn db_send_native() {
+    let mut pts = Vec::new();
+    loop {
+        let now = Utc::now();
+        let waitsec = 60 - now.second();
+        thread::sleep(time::Duration::from_secs(waitsec as u64));
 
-            // This is clumsy, but has to be done this way because influxdb2 compatible client libraries
-            // seem to need a different version of tokio library than coap server lib
-            // and thus we would end up in dependency hell.
+        let ts = Utc::now().timestamp();
+        let ts60 = ts - (ts % 60);
 
-            // Luckily, this is only done once per minute, so it is not a performance issue.
-
-            let mut p = Command::new(INFLUX).arg("write")
-                .arg("--precision").arg("s")
-                .arg("--bucket").arg(DB_BUCKET)
-                .stdin(Stdio::piped())
-                .stdout(Stdio::piped())
-                .stderr(Stdio::piped())
-                .spawn().unwrap();
-            let p_in = p.stdin.as_mut().unwrap();
-            p_in.write_all(line_data.as_bytes()).unwrap();
-            drop(p_in); // close stdin already -- probably not needed anymore these days
-            let out = p.wait_with_output().unwrap();
-            if !out.status.success() || out.stdout.len() > 0 || out.stderr.len() > 0 {
-                mylog(&format!("influx command failed, exit status {}\nstderr:\n{}\nstdout:\n{}\n",
-                    out.status.code().unwrap(),
-                    String::from_utf8(out.stderr).unwrap(),
-                    String::from_utf8(out.stdout).unwrap()));
+        pts.clear();
+        {
+            let sd = SDATA.lock().unwrap();
+            for (sensorid, tbuf) in sd.iter() {
+                // Only send updates if we have some values in buffer!
+                if tbuf.len() >= 3 {
+                    let p = Point::new(INFLUXDB_MEASUREMENT)
+                        .tag("sensor", sensorid.as_str())
+                        .field("value", tbuf.avg5() as f64)
+                        .timestamp(ts60);
+                    pts.push(p);
+                }
+            }
+        }
+        if pts.len() > 0 {
+            let c = Client::new(INFLUXDB_URL, INFLUXDB_TOKEN)
+                .with_org(INFLUXDB_ORG)
+                .with_bucket(INFLUXDB_BUCKET)
+                .with_precision(Precision::S);
+            let f = c.insert_points(&pts, TimestampOptions::FromPoint);
+            let res = task::block_on(f);
+            match res {
+                Ok(_) => {},
+                Err(e) => {
+                    mylog(&format!("InfluxDB client error: {:?}", e));
+                },
             }
         }
     }
@@ -218,7 +277,9 @@ fn main() {
         tbuf_expire();
     });
     let _thr_db_send = thread::spawn(|| {
-        db_send();
+        // Use either of these:
+        // db_send_native();
+        db_send_ext();
     });
 
     Runtime::new().unwrap().block_on(async move {
