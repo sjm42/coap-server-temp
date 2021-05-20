@@ -2,11 +2,15 @@
 #![feature(async_closure)]
 #![feature(once_cell)]
 
+extern crate log;
+extern crate simplelog;
 extern crate lazy_static;
 extern crate coap;
 extern crate chrono;
 extern crate influxdb_client;
 
+use log::*;
+use simplelog::*;
 use std::collections::HashMap;
 use std::lazy::*;
 use std::process::{Command, Stdio};
@@ -20,14 +24,14 @@ use coap::Server;
 use coap_lite::{RequestType as Method};
 use lazy_static::lazy_static;
 use tokio::runtime::Runtime;
-// use influxdb_client::{Client, Point, Precision, TimestampOptions};
 use influxdb_client::*;
 
 mod utils;
 use utils::tbuf::*;
-use utils::util::*;
 use std::io::Write;
 
+
+const LISTEN_ADDR: &str = "0.0.0.0:5683";
 
 const DEFAULT_OUTSENSOR: &str = "28F41A2800008091";
 const INFLUX_BINARY: &str = "/usr/bin/influx";
@@ -45,7 +49,7 @@ static OUTSENSOR: SyncLazy<Mutex<String>> = SyncLazy::new(|| Mutex::new(String::
 
 
 fn resp_store_temp(payload: Option<&str>) -> String {
-    // mylog(&format!("store_temp payload={}", payload.unwrap_or(&"<none>".to_string())));
+    trace!("store_temp payload={}", payload.unwrap_or(&"<none>".to_string()));
     match payload {
         None => {
             return "NO DATA".to_string();
@@ -76,27 +80,27 @@ fn resp_store_temp(payload: Option<&str>) -> String {
 }
 
 fn resp_list_sensors(_payload: Option<&str>) -> String {
-    // mylog(&format!("list_sensors payload={}", _payload.unwrap_or(&"<none>".to_string())));
+    trace!("list_sensors payload={}", _payload.unwrap_or(&"<none>".to_string()));
     let sd = SDATA.lock().unwrap();
     let sensor_list = sd.keys().map(|s| &**s).collect::<Vec<_>>().join(" ");
-    mylog(&sensor_list);
+    trace!("sensor list: {}", &sensor_list);
     sensor_list
 }
 
 fn resp_avg_out(_payload: Option<&str>) -> String {
-    // mylog(&format!("avg_out payload={}", _payload.unwrap_or(&String::from("<none>"))));
+    trace!("avg_out payload={}", _payload.unwrap_or(&String::from("<none>")));
     let skey = OUTSENSOR.lock().unwrap();
     let sd = SDATA.lock().unwrap();
     if !sd.contains_key(&*skey) {
         return "NO DATA".to_string()
     }
     let avg_out = format!("{:.2}", sd.get(&*skey).unwrap().avg15());
-    mylog(&avg_out);
+    trace!("avg_out: {}", &avg_out);
     avg_out
 }
 
 fn resp_set_outsensor(payload: Option<&str>) -> String {
-    // mylog(&format!("set_outsensor payload={}", payload.unwrap_or(&"<none>".to_string())));
+    trace!("set_outsensor payload={}", payload.unwrap_or(&"<none>".to_string()));
     match payload {
         None => {
             return "NO DATA".to_string();
@@ -109,18 +113,19 @@ fn resp_set_outsensor(payload: Option<&str>) -> String {
     }
 }
 
-fn resp_dump(_payload: Option<&str>) -> String {
+fn resp_dump(payload: Option<&str>) -> String {
+    trace!("dump payload={}", payload.unwrap_or(&"<none>".to_string()));
     let sd = SDATA.lock().unwrap();
-    mylog(&format!("Have {} sensors.", sd.len()));
+    info!("Have {} sensors.", sd.len());
     for (sensorid, tbuf) in sd.iter() {
-        mylog(&format!("sensor {} tbuf={:?}", sensorid, tbuf));
+        info!("sensor {} tbuf={:?}", sensorid, tbuf);
     }
     "OK".to_string()
 }
 
 lazy_static! {
     static ref URLMAP: HashMap<&'static str, fn(Option<&str>)->String> = {
-        // mylog(format!("URLMAP initializing"));
+        trace!("URLMAP initializing");
         let mut m: HashMap<&'static str, fn(Option<&str>)->String> = HashMap::new();
         m.insert("store_temp", resp_store_temp);
         m.insert("list_sensors", resp_list_sensors);
@@ -135,7 +140,7 @@ lazy_static! {
 // This is run in its own thread while program is running
 fn tbuf_expire() {
     loop {
-        // mylog(&format!("buf_expire"));
+        trace!("tbuf_expire active");
         {
             let mut sd = SDATA.lock().unwrap();
             for (_sensorid, tbuf) in sd.iter_mut() {
@@ -143,7 +148,7 @@ fn tbuf_expire() {
                 if tbuf.expire() { tbuf.upd_avg(); }
                 let n_exp = len1 - tbuf.len();
                 if n_exp > 0 {
-                    // mylog(&format!("Expired: sensor {} n_exp={}", _sensorid, n_exp));
+                    trace!("Expired: sensor {} n_exp={}", _sensorid, n_exp);
                 }
             }
         }
@@ -164,7 +169,7 @@ fn influx_send_ext(data: &Vec<String>) {
     // Luckily, this is only done once per minute, so it is not a performance issue.
 
     let line_data = data.iter().map(|s| &**s).collect::<Vec<_>>().join("\n");
-    mylog(&format!("IDB line data:\n{}", line_data));
+    info!("IDB line data:\n{}", line_data);
 
     let mut p = Command::new(INFLUX_BINARY).arg("write")
         .arg("--precision").arg("s")
@@ -177,10 +182,10 @@ fn influx_send_ext(data: &Vec<String>) {
     p_in.write_all(line_data.as_bytes()).unwrap();
     let out = p.wait_with_output().unwrap();
     if !out.status.success() || out.stdout.len() > 0 || out.stderr.len() > 0 {
-        mylog(&format!("influx command failed, exit status {}\nstderr:\n{}\nstdout:\n{}\n",
-                       out.status.code().unwrap(),
-                       String::from_utf8(out.stderr).unwrap(),
-                       String::from_utf8(out.stdout).unwrap()));
+        error!("influx command failed, exit status {}\nstderr:\n{}\nstdout:\n{}\n",
+              out.status.code().unwrap(),
+              String::from_utf8(out.stderr).unwrap(),
+              String::from_utf8(out.stdout).unwrap());
     }
 }
 
@@ -208,13 +213,13 @@ fn db_send_ext() {
 
         // Only send if we have anything to send...
         if points.len() > 0 {
-            // mylog(&format!("IDB: {:?}", points));
+            trace!("IDB data: {:?}", points);
             influx_send_ext(&points);
         }
     }
 }
 
-// The Rust native influxdb client won't work, error message:
+// Sadly, the Rust native influxdb client won't work with task::block_on() - the error message is:
 // thread '<unnamed>' panicked at 'there is no reactor running, must be called from the context of a Tokio 1.x runtime',
 // /home/sjm/.cargo/registry/src/github.com-1ecc6299db9ec823/tokio-1.6.0/src/runtime/blocking/pool.rs:85:33
 #[allow(dead_code)]
@@ -252,7 +257,7 @@ fn db_send_native() {
             match res {
                 Ok(_) => {},
                 Err(e) => {
-                    mylog(&format!("InfluxDB client error: {:?}", e));
+                    error!("InfluxDB client error: {:?}", e);
                 },
             }
         }
@@ -261,8 +266,10 @@ fn db_send_native() {
 
 
 fn main() {
-    let addr = "0.0.0.0:5683";
-
+    SimpleLogger::init(LevelFilter::Info,
+                       ConfigBuilder::new()
+                             .set_time_format_str("%Y-%m-%d %H:%M:%S")
+                             .build()).unwrap();
     // Here we are triggering the lazy initializations
     let n_url = URLMAP.len();
     let _n_sensors = SDATA.lock().unwrap().len();
@@ -270,7 +277,7 @@ fn main() {
         let mut s = OUTSENSOR.lock().unwrap();
         *s = DEFAULT_OUTSENSOR.to_string();
     }
-    mylog(&format!("Have {} URL responders.", n_url));
+    info!("Have {} URL responders.", n_url);
 
     // Spawn some housekeeping threads
     let _thr_tbuf_expire = thread::spawn(|| {
@@ -283,8 +290,8 @@ fn main() {
     });
 
     Runtime::new().unwrap().block_on(async move {
-        let mut server = Server::new(addr).unwrap();
-        mylog(&format!("Server up on {}", addr));
+        let mut server = Server::new(LISTEN_ADDR).unwrap();
+        info!("Server up on {}", LISTEN_ADDR);
 
         server.run(async move |request| {
             let url_path = request.get_path();
@@ -299,26 +306,28 @@ fn main() {
                 Some(responder_f) => {
                     match request.get_method() {
                         &Method::Get => {
-                            mylog(&format!("GET /{}", url_path));
+                            info!("GET /{}", url_path);
                             resp = responder_f(None);
-                            mylog(&format!("--> {}", resp))
+                            info!("--> {}", resp);
                         },
                         &Method::Post => {
                             let payload_o = String::from_utf8(request.message.payload);
                             match payload_o {
                                 Err(e) => {
-                                    mylog(&format!("UTF-8 decode error: {}", e));
+                                    error!("UTF-8 decode error: {:?}", e);
                                     resp = "BAD REQUEST".to_string();
                                     resp_code = "4.00";
                                 },
                                 Ok(payload) => {
-                                    mylog(&format!("POST /{} data: {}", url_path, payload));
+                                    info!("POST /{} data: {}", url_path, payload);
                                     resp = responder_f(Some(&payload));
-                                    mylog(&format!("--> {}", resp))
+                                    info!("--> {}", resp);
                                 },
                             }
                         },
-                        _ => mylog(&"Unsupported CoAP method!".to_string()),
+                        _ => {
+                            error!("Unsupported CoAP method!");
+                        },
                     }
                 },
             }
