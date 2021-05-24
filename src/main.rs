@@ -32,7 +32,6 @@ use std::io::Write;
 
 
 const LISTEN_ADDR: &str = "0.0.0.0:5683";
-
 const DEFAULT_OUTSENSOR: &str = "28F41A2800008091";
 const INFLUX_BINARY: &str = "/usr/bin/influx";
 const INFLUXDB_BUCKET: &str = "temperature";
@@ -42,26 +41,31 @@ const INFLUXDB_URL: &str = "http://localhost:8086";
 const INFLUXDB_TOKEN: &str = "W1o2562R92QdkcGmZOGiMROv_JIb773tS_wskzUed7bLJuOVVJ9y2rBKvaY3r7zmzIK7flzyW1F6SlRTqsJDYw==";
 const INFLUXDB_ORG: &str = "siuro";
 
-
 type SensorData = HashMap<String, Tbuf>;
 static SDATA: SyncLazy<Mutex<SensorData>> = SyncLazy::new(|| Mutex::new(SensorData::new()));
 static OUTSENSOR: SyncLazy<Mutex<String>> = SyncLazy::new(|| Mutex::new(String::new()));
 
 
-fn resp_store_temp(payload: Option<&str>) -> String {
+fn resp_store_temp(payload: Option<&str>, code: &mut String, resp: &mut String) {
     trace!("store_temp payload={}", payload.unwrap_or(&"<none>".to_string()));
     match payload {
         None => {
-            return "NO DATA".to_string();
+            *code = "4.00".to_string();
+            *resp = "NO DATA".to_string();
+            return;
         },
         Some(data) => {
             let indata: Vec<&str> = data.split_whitespace().collect();
             if indata.len() != 2 {
-                return "ILLEGAL DATA".to_string();
+                *code = "4.00".to_string();
+                *resp = "ILLEGAL DATA".to_string();
+                return;
             }
             match indata[1].parse::<f32>() {
                 Err(_) => {
-                    return "ILLEGAL DATA".to_string();
+                    *code = "4.00".to_string();
+                    *resp = "ILLEGAL DATA".to_string();
+                    return;
                 },
                 Ok(temp) => {
                     let sensorid = indata[0];
@@ -72,61 +76,72 @@ fn resp_store_temp(payload: Option<&str>) -> String {
                     }
                     let tbuf = sd.get_mut(sensorid).unwrap();
                     tbuf.add(Tdata::new(temp));
-                    return "OK".to_string();
+                    *code = "2.05".to_string();
+                    *resp = "OK".to_string();
+                    return;
                 },
             }
         },
     }
 }
 
-fn resp_list_sensors(_payload: Option<&str>) -> String {
-    trace!("list_sensors payload={}", _payload.unwrap_or(&"<none>".to_string()));
+fn resp_list_sensors(payload: Option<&str>, code: &mut String, resp: &mut String) {
+    trace!("list_sensors payload={}", payload.unwrap_or(&"<none>".to_string()));
     let sd = SDATA.lock().unwrap();
     let sensor_list = sd.keys().map(|s| &**s).collect::<Vec<_>>().join(" ");
-    trace!("sensor list: {}", &sensor_list);
-    sensor_list
+    *code = "2.05".to_string();
+    *resp = sensor_list;
 }
 
-fn resp_avg_out(_payload: Option<&str>) -> String {
-    trace!("avg_out payload={}", _payload.unwrap_or(&String::from("<none>")));
+fn resp_avg_out(payload: Option<&str>, code: &mut String, resp: &mut String) {
+    trace!("avg_out payload={}", payload.unwrap_or(&String::from("<none>")));
     let skey = OUTSENSOR.lock().unwrap();
     let sd = SDATA.lock().unwrap();
     if !sd.contains_key(&*skey) {
-        return "NO DATA".to_string()
+        *code = "5.03".to_string();
+        *resp = "NO DATA".to_string();
+        return;
     }
     let avg_out = format!("{:.2}", sd.get(&*skey).unwrap().avg15());
-    trace!("avg_out: {}", &avg_out);
-    avg_out
+    *code = "2.05".to_string();
+    *resp = avg_out;
 }
 
-fn resp_set_outsensor(payload: Option<&str>) -> String {
+fn resp_set_outsensor(payload: Option<&str>, code: &mut String, resp: &mut String) {
     trace!("set_outsensor payload={}", payload.unwrap_or(&"<none>".to_string()));
     match payload {
         None => {
-            return "NO DATA".to_string();
+            *code = "4.00".to_string();
+            *resp = "NO DATA".to_string();
+            return;
         },
         Some(data) => {
-            let mut s = OUTSENSOR.lock().unwrap();
-            *s = data.to_string();
-            return "OK".to_string();
+            {
+                let mut s = OUTSENSOR.lock().unwrap();
+                *s = data.to_string();
+            }
+            *code = "2.05".to_string();
+            *resp = "OK".to_string();
+            return;
         },
     }
 }
 
-fn resp_dump(payload: Option<&str>) -> String {
+fn resp_dump(payload: Option<&str>, code: &mut String, resp: &mut String) {
     trace!("dump payload={}", payload.unwrap_or(&"<none>".to_string()));
     let sd = SDATA.lock().unwrap();
-    info!("Have {} sensors.", sd.len());
+    info!("dump: {} sensors.", sd.len());
     for (sensorid, tbuf) in sd.iter() {
-        info!("sensor {} tbuf={:?}", sensorid, tbuf);
+        info!("dump: sensor {} tbuf={:?}", sensorid, tbuf);
     }
-    "OK".to_string()
+    *code = "2.05".to_string();
+    *resp = "OK".to_string();
 }
 
 lazy_static! {
-    static ref URLMAP: HashMap<&'static str, fn(Option<&str>)->String> = {
+    static ref URLMAP: HashMap<&'static str, fn(Option<&str>, &mut String, &mut String)> = {
         trace!("URLMAP initializing");
-        let mut m: HashMap<&'static str, fn(Option<&str>)->String> = HashMap::new();
+        let mut m: HashMap<&'static str, fn(Option<&str>, &mut String, &mut String)> = HashMap::new();
         m.insert("store_temp", resp_store_temp);
         m.insert("list_sensors", resp_list_sensors);
         m.insert("avg_out", resp_avg_out);
@@ -140,7 +155,7 @@ lazy_static! {
 // This is run in its own thread while program is running
 fn tbuf_expire() {
     loop {
-        trace!("tbuf_expire active");
+        // trace!("tbuf_expire active");
         {
             let mut sd = SDATA.lock().unwrap();
             for (_sensorid, tbuf) in sd.iter_mut() {
@@ -197,6 +212,7 @@ fn db_send_ext() {
         let waitsec = 60 - now.second();
         thread::sleep(time::Duration::from_secs(waitsec as u64));
 
+        // trace!("db_send_ext active");
         let ts = Utc::now().timestamp();
         let ts60 = ts - (ts % 60);
 
@@ -210,10 +226,8 @@ fn db_send_ext() {
                 }
             }
         }
-
         // Only send if we have anything to send...
         if points.len() > 0 {
-            trace!("IDB data: {:?}", points);
             influx_send_ext(&points);
         }
     }
@@ -230,6 +244,7 @@ fn db_send_native() {
         let waitsec = 60 - now.second();
         thread::sleep(time::Duration::from_secs(waitsec as u64));
 
+        // trace!("db_send_native active");
         let ts = Utc::now().timestamp();
         let ts60 = ts - (ts % 60);
 
@@ -295,47 +310,56 @@ fn main() {
 
         server.run(async move |request| {
             let url_path = request.get_path();
-            let mut resp = String::from("");
-            let mut resp_code = "2.05";
+            let mut resp_code = "2.05".to_string();
+            let mut resp = "".to_string();
+            let ip_s: String;
+            match request.source {
+                None => {
+                    ip_s = "<none>".to_string();
+                },
+                Some(ip) => {
+                    ip_s = ip.to_string();
+                },
+            }
+            info!("{} {:?} /{}", ip_s, request.get_method(), url_path);
 
             match URLMAP.get(url_path.as_str()) {
                 None => {
+                    resp_code = "4.04".to_string();
                     resp = "NOT FOUND".to_string();
-                    resp_code = "4.04";
                 },
                 Some(responder_f) => {
                     match request.get_method() {
                         &Method::Get => {
-                            info!("GET /{}", url_path);
-                            resp = responder_f(None);
-                            info!("--> {}", resp);
+                            responder_f(None, &mut resp_code, &mut resp);
                         },
                         &Method::Post => {
                             let payload_o = String::from_utf8(request.message.payload);
                             match payload_o {
                                 Err(e) => {
-                                    error!("UTF-8 decode error: {:?}", e);
+                                    error!("--> UTF-8 decode error: {:?}", e);
+                                    resp_code = "4.00".to_string();
                                     resp = "BAD REQUEST".to_string();
-                                    resp_code = "4.00";
                                 },
                                 Ok(payload) => {
-                                    info!("POST /{} data: {}", url_path, payload);
-                                    resp = responder_f(Some(&payload));
-                                    info!("--> {}", resp);
+                                    info!("<-- payload: {}", payload);
+                                    responder_f(Some(&payload), &mut resp_code, &mut resp);
                                 },
                             }
                         },
                         _ => {
-                            error!("Unsupported CoAP method!");
+                            error!("--> Unsupported CoAP method {:?}", request.get_method());
+                            resp_code = "4.00".to_string();
+                            resp = "BAD REQUEST".to_string();
                         },
                     }
                 },
             }
-
+            info!("--> {} {}", resp_code, resp);
             let resp_b = resp.as_bytes();
             return match request.response {
                 Some(mut message) => {
-                    message.message.header.set_code(resp_code);
+                    message.message.header.set_code(&resp_code);
                     message.message.payload = resp_b.to_vec();
                     Some(message)
                 },

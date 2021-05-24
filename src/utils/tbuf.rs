@@ -1,8 +1,13 @@
 // tbuf.rs
 
+extern crate log;
+
 use std::time::*;
+use log::*;
+
 #[allow(unused_imports)]
 use crate::utils::util::*;
+
 
 #[derive(Debug)]
 pub struct Tdata {
@@ -90,7 +95,7 @@ impl Tbuf {
             if self.buf[0].ts < expiration {
                 changed = true;
                 let _exp_data = self.buf.remove(0);
-                // mylog(&format!("Tbuf expired tdata: {:?}", _exp_data));
+                trace!("Tbuf expired tdata: {:?}", _exp_data);
             }
             else {
                 // The items are age ordered and thus can stop
@@ -98,7 +103,7 @@ impl Tbuf {
                 break;
             }
         }
-        // mylog(&format!("(tbuf expire)Tbuf len: {}", self.buf.len()));
+        trace!("(tbuf expire)Tbuf len: {}", self.buf.len());
         changed
     }
     pub fn upd_avg(&mut self) {
