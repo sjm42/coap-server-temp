@@ -1,12 +1,7 @@
-// tbuf.rs
-
-extern crate log;
+// utils/tbuf.rs
 
 use std::time::*;
 use log::*;
-
-#[allow(unused_imports)]
-use crate::utils::util::*;
 
 
 #[derive(Debug)]
@@ -63,9 +58,9 @@ pub struct Tbuf {
     buf: Vec<Tdata>,
 }
 
-#[allow(dead_code)]
 impl Tbuf {
     pub fn new() -> Tbuf {
+        trace!("Tbuf::new()");
         Tbuf {
             expire: 15*60, // store 15 minutes worth of data
             avg5: f32::NAN,
@@ -77,6 +72,7 @@ impl Tbuf {
         self.buf.len()
     }
     pub fn add(&mut self, d: Tdata) {
+        trace!("Tbuf::add({:?})", d);
         self.buf.push(d);
         self.upd_avg();
         // data expiration is handled in a separate thread
@@ -103,7 +99,7 @@ impl Tbuf {
                 break;
             }
         }
-        trace!("(tbuf expire)Tbuf len: {}", self.buf.len());
+        // trace!("(tbuf expire)Tbuf len: {}", self.buf.len());
         changed
     }
     pub fn upd_avg(&mut self) {
