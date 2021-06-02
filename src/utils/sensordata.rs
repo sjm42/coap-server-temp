@@ -13,7 +13,6 @@ type SensorData = HashMap<String, tbuf::Tbuf>;
 static SDATA: SyncLazy<Mutex<SensorData>> = SyncLazy::new(|| Mutex::new(SensorData::new()));
 
 
-#[allow(dead_code)]
 // This is run in its own thread while program is running
 fn sensordata_expire() {
     loop {
@@ -33,9 +32,8 @@ fn sensordata_expire() {
     }
 }
 
-#[allow(dead_code)]
 pub fn init() {
-    trace!("sensordata::init() called");
+    info!("sensordata::init()");
     // Triggering lazy initialization
     let _n_sensors = SDATA.lock().unwrap().len();
     let _thr_expire = thread::spawn(|| {
@@ -43,7 +41,6 @@ pub fn init() {
     });
 }
 
-#[allow(dead_code)]
 pub fn add(sensorid: &str, temp: f32) {
     trace!("sensordata::add({}, {})", sensorid, temp);
     let mut sd = SDATA.lock().unwrap();
@@ -55,7 +52,6 @@ pub fn add(sensorid: &str, temp: f32) {
     tbuf.add(tbuf::Tdata::new(temp));
 }
 
-#[allow(dead_code)]
 pub fn get_avg5(sensorid: &str) -> Option<f32> {
     trace!("sensordata::get_avg5({})", sensorid);
     let sd = SDATA.lock().unwrap();
@@ -65,7 +61,6 @@ pub fn get_avg5(sensorid: &str) -> Option<f32> {
     return Some(sd.get(sensorid).unwrap().avg5());
 }
 
-#[allow(dead_code)]
 pub fn get_avg15(sensorid: &str) -> Option<f32> {
     trace!("sensordata::get_avg15({})", sensorid);
     let sd = SDATA.lock().unwrap();
@@ -75,7 +70,6 @@ pub fn get_avg15(sensorid: &str) -> Option<f32> {
     return Some(sd.get(sensorid).unwrap().avg15());
 }
 
-#[allow(dead_code)]
 pub fn sensor_list() -> Vec<String> {
     let sd = SDATA.lock().unwrap();
     let list = sd.keys()
@@ -85,7 +79,6 @@ pub fn sensor_list() -> Vec<String> {
     list
 }
 
-#[allow(dead_code)]
 pub fn sensor_list3() -> Vec<String> {
     let sd = SDATA.lock().unwrap();
     let list = sd.keys()
@@ -96,7 +89,6 @@ pub fn sensor_list3() -> Vec<String> {
     list
 }
 
-#[allow(dead_code)]
 pub fn dump() {
     let sd = SDATA.lock().unwrap();
     info!("dump: {} sensors.", sd.len());

@@ -20,7 +20,6 @@ const INFLUXDB_TOKEN: &str = "W1o2562R92QdkcGmZOGiMROv_JIb773tS_wskzUed7bLJuOVVJ
 const INFLUXDB_ORG: &str = "siuro";
 
 
-#[allow(dead_code)]
 fn influx_send_ext(data: &Vec<String>) {
     // Run the external influx command to write data.
     // Here we assume that the user running this has the necessary InfluxDB client configs
@@ -53,7 +52,6 @@ fn influx_send_ext(data: &Vec<String>) {
     }
 }
 
-#[allow(dead_code)]
 fn db_send_ext() {
     let mut points = vec![];
     loop {
@@ -116,9 +114,8 @@ fn db_send_native() {
     }
 }
 
-#[allow(dead_code)]
 pub fn init() {
-    trace!("influxdb::init() called");
+    info!("influxdb::init()");
     let _thr_db_send = thread::spawn(|| {
         // Use either of these:
         // db_send_native();
