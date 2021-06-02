@@ -75,7 +75,6 @@ impl Tbuf {
         trace!("Tbuf::add({:?})", d);
         self.buf.push(d);
         self.upd_avg();
-        // data expiration is handled in a separate thread
     }
     pub fn avg5(&self) -> f32 {
         self.avg5
@@ -94,8 +93,8 @@ impl Tbuf {
                 trace!("Tbuf expired tdata: {:?}", _exp_data);
             }
             else {
-                // The items are age ordered and thus can stop
-                // when first non-expired item is found
+                // The items are age ordered and thus we stop
+                // when the oldest non-expired item is found
                 break;
             }
         }

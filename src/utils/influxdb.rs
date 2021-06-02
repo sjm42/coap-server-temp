@@ -20,7 +20,7 @@ const INFLUXDB_TOKEN: &str = "W1o2562R92QdkcGmZOGiMROv_JIb773tS_wskzUed7bLJuOVVJ
 const INFLUXDB_ORG: &str = "siuro";
 
 
-fn influx_send_ext(data: &Vec<String>) {
+fn influx_send_ext(line_data: &str) {
     // Run the external influx command to write data.
     // Here we assume that the user running this has the necessary InfluxDB client configs
     // available in home directory, including URL, Organization and Token.
@@ -31,9 +31,7 @@ fn influx_send_ext(data: &Vec<String>) {
 
     // Luckily, this is only done once per minute, so it is not a performance issue.
 
-    let line_data = data.iter().map(|s| &**s).collect::<Vec<_>>().join("\n");
     info!("IDB line data:\n{}", line_data);
-
     let mut p = Command::new(INFLUX_BINARY).arg("write")
         .arg("--precision").arg("s")
         .arg("--bucket").arg(INFLUXDB_BUCKET)
@@ -53,23 +51,24 @@ fn influx_send_ext(data: &Vec<String>) {
 }
 
 fn db_send_ext() {
-    let mut points = vec![];
+    let mut line_data = String::new();
     loop {
         let now = Utc::now();
         let waitsec = 60 - now.second();
+        // wait until next full minute start
         thread::sleep(time::Duration::from_secs(waitsec as u64));
 
         trace!("influxdb::db_send_ext() active");
         let ts = Utc::now().timestamp();
         let ts60 = ts - (ts % 60);
 
-        points.clear();
+        line_data.clear();
         for sensorid in sensordata::sensor_list3() {
-            points.push(format!("{},sensor={} value={:.2} {}", INFLUXDB_MEASUREMENT, sensorid, sensordata::get_avg5(&sensorid).unwrap(), ts60));
+            line_data.push_str(format!("{},sensor={} value={:.2} {}\n", INFLUXDB_MEASUREMENT, sensorid, sensordata::get_avg5(&sensorid).unwrap(), ts60).as_str());
         }
         // Only send if we have anything to send...
-        if points.len() > 0 {
-            influx_send_ext(&points);
+        if line_data.len() > 0 {
+            influx_send_ext(&line_data);
         }
     }
 }
@@ -83,6 +82,7 @@ fn db_send_native() {
     loop {
         let now = Utc::now();
         let waitsec = 60 - now.second();
+        // wait until next full minute start
         thread::sleep(time::Duration::from_secs(waitsec as u64));
 
         trace!("influxdb::db_send_native() active");
