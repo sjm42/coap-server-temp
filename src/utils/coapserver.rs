@@ -4,14 +4,13 @@ use log::*;
 use std::lazy::*;
 use std::sync::*;
 
-use coap::Server;
 use coap_lite::{RequestType as Method, CoapRequest, CoapResponse};
 use tokio::runtime::Runtime;
+use std::net::SocketAddr;
 
 use crate::utils::outsensor;
 use crate::utils::sensordata;
 use crate::utils::urlmap;
-use std::net::SocketAddr;
 
 
 const LISTEN_ADDR: &str = "0.0.0.0:5683";
@@ -166,7 +165,7 @@ pub fn init() {
 pub fn serve_coap() {
     let mut rt = Runtime::new().unwrap();
     rt.block_on(async move {
-        let mut server = Server::new(LISTEN_ADDR).unwrap();
+        let mut server = coap::Server::new(LISTEN_ADDR).unwrap();
         info!("Server up on {}", LISTEN_ADDR);
         server.run(handle_coap_req).await.unwrap();
     });

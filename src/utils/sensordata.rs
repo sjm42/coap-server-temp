@@ -9,9 +9,9 @@ use std::time;
 
 use crate::utils::tbuf;
 
+
 type SensorData = HashMap<String, tbuf::Tbuf>;
 static SDATA: SyncLazy<Mutex<SensorData>> = SyncLazy::new(|| Mutex::new(SensorData::new()));
-
 
 // This is run in its own thread while program is running
 fn sensordata_expire() {

@@ -2,12 +2,6 @@
 #![feature(once_cell)]
 #![feature(async_closure)]
 
-extern crate log;
-extern crate simplelog;
-extern crate coap;
-extern crate chrono;
-extern crate influxdb_client;
-
 use log::*;
 use simplelog::*;
 
