@@ -68,7 +68,7 @@ fn db_send_ext() {
         }
         // Only send if we have anything to send...
         if line_data.len() > 0 {
-            influx_send_ext(&line_data);
+            influx_send_ext(line_data.trim_end());
         }
     }
 }
