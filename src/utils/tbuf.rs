@@ -86,7 +86,7 @@ impl Tbuf {
         let now = SystemTime::now();
         let expiration = now.checked_sub(Duration::from_secs(self.expire)).unwrap();
         let mut changed = false;
-        while self.buf.len() > 0 {
+        while !self.buf.is_empty() {
             if self.buf[0].ts < expiration {
                 changed = true;
                 let _exp_data = self.buf.remove(0);
@@ -108,7 +108,7 @@ impl Tbuf {
         let mut sum15: f32 = 0.0;
 
         // is it empty?
-        if self.buf.len() == 0 {
+        if self.buf.is_empty() {
             self.avg5 = f32::NAN;
             self.avg15 = f32::NAN;
             return;

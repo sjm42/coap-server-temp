@@ -109,11 +109,11 @@ async fn handle_coap_req(request: CoapRequest<SocketAddr>) -> Option<CoapRespons
     }
     info!("#{} {} {:?} /{}", i_save, ip_s, request.get_method(), url_path);
 
-    match request.get_method() {
-        &Method::Get => {
+    match *request.get_method() {
+        Method::Get => {
             urlmap::get(url_path.as_str())(None, &mut resp_code, &mut resp);
         },
-        &Method::Post => {
+        Method::Post => {
             let payload_o = String::from_utf8(request.message.payload);
             match payload_o {
                 Err(e) => {
@@ -135,14 +135,14 @@ async fn handle_coap_req(request: CoapRequest<SocketAddr>) -> Option<CoapRespons
     }
     info!("--> {} {}", resp_code, resp);
     let resp_b = resp.as_bytes();
-    return match request.response {
+    match request.response {
         Some(mut message) => {
             message.message.header.set_code(&resp_code);
             message.message.payload = resp_b.to_vec();
             Some(message)
         },
         _ => None
-    };
+    }
 }
 
 pub fn init() {

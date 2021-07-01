@@ -72,8 +72,7 @@ pub fn get_avg15(sensorid: &str) -> Option<f32> {
 
 pub fn sensor_list() -> Vec<String> {
     let sd = SDATA.lock().unwrap();
-    let list = sd.keys()
-        .map(|s| s.clone())
+    let list = sd.keys().cloned()
         .collect::<Vec<_>>();
     trace!("sensordata::sensor_list() --> {:?}", list);
     list
@@ -82,8 +81,7 @@ pub fn sensor_list() -> Vec<String> {
 pub fn sensor_list3() -> Vec<String> {
     let sd = SDATA.lock().unwrap();
     let list = sd.keys()
-        .filter(|s| sd.get(*s).unwrap().len() >= 3)
-        .map(|s| s.clone())
+        .filter(|s| sd.get(*s).unwrap().len() >= 3).cloned()
         .collect::<Vec<_>>();
     trace!("sensordata::sensor_list3() --> {:?}", list);
     list

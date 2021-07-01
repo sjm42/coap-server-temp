@@ -42,7 +42,7 @@ fn influx_send_ext(line_data: &str) {
     let p_in = p.stdin.as_mut().unwrap();
     p_in.write_all(line_data.as_bytes()).unwrap();
     let out = p.wait_with_output().unwrap();
-    if !out.status.success() || out.stdout.len() > 0 || out.stderr.len() > 0 {
+    if !out.status.success() || !out.stdout.is_empty() || !out.stderr.is_empty() {
         error!("influx command failed, exit status {}\nstderr:\n{}\nstdout:\n{}\n",
                out.status.code().unwrap(),
                String::from_utf8(out.stderr).unwrap(),
@@ -67,7 +67,7 @@ fn db_send_ext() {
             line_data.push_str(format!("{},sensor={} value={:.2} {}\n", INFLUXDB_MEASUREMENT, sensorid, sensordata::get_avg5(&sensorid).unwrap(), ts60).as_str());
         }
         // Only send if we have anything to send...
-        if line_data.len() > 0 {
+        if !line_data.is_empty() {
             influx_send_ext(line_data.trim_end());
         }
     }
@@ -97,7 +97,7 @@ fn db_send_native() {
                 .timestamp(ts60);
             pts.push(p);
         }
-        if pts.len() > 0 {
+        if !pts.is_empty() {
             let c = Client::new(INFLUXDB_URL, INFLUXDB_TOKEN)
                 .with_org(INFLUXDB_ORG)
                 .with_bucket(INFLUXDB_BUCKET)
