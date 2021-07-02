@@ -12,6 +12,19 @@ use crate::utils::tbuf;
 type SensorData = HashMap<String, tbuf::Tbuf>;
 static SDATA: SyncLazy<Mutex<SensorData>> = SyncLazy::new(|| Mutex::new(SensorData::new()));
 
+const DEFAULT_OUTSENSOR: &str = "28F41A2800008091";
+static OUTSENSOR: SyncLazy<Mutex<String>> = SyncLazy::new(|| Mutex::new(String::new()));
+
+pub fn init() {
+    info!("sensordata::init()");
+    outsensor_set(DEFAULT_OUTSENSOR);
+    // Triggering lazy initialization
+    let _n_sensors = SDATA.lock().unwrap().len();
+    let _thr_expire = thread::spawn(|| {
+        sensordata_expire();
+    });
+}
+
 // This is run in its own thread while program is running
 fn sensordata_expire() {
     loop {
@@ -31,15 +44,6 @@ fn sensordata_expire() {
         }
         thread::sleep(time::Duration::from_secs(30));
     }
-}
-
-pub fn init() {
-    info!("sensordata::init()");
-    // Triggering lazy initialization
-    let _n_sensors = SDATA.lock().unwrap().len();
-    let _thr_expire = thread::spawn(|| {
-        sensordata_expire();
-    });
 }
 
 pub fn add(sensorid: &str, temp: f32) {
@@ -96,4 +100,17 @@ pub fn dump() {
         info!("dump: sensor {} tbuf={:?}", sensorid, tbuf);
     }
 }
+
+pub fn outsensor_get() -> String {
+    let s = OUTSENSOR.lock().unwrap();
+    // trace!("outsensor::get() --> {:?}", s);
+    s.to_string()
+}
+
+pub fn outsensor_set(data: &str) {
+    trace!("outsensor::set({})", data);
+    let mut s = OUTSENSOR.lock().unwrap();
+    *s = data.to_string();
+}
+
 // EOF

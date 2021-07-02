@@ -10,7 +10,6 @@ use simplelog::*;
 mod utils;
 use utils::coapserver;
 use utils::influxdb;
-use utils::outsensor;
 use utils::sensordata;
 
 build_time!("%A %Y-%m-%d %H:%M:%S UTC");
@@ -24,7 +23,6 @@ fn main() {
     .unwrap();
     info!("CoAP server (built {}) initializing", BUILD_TIME);
     influxdb::init();
-    outsensor::init();
     sensordata::init();
     coapserver::init();
     coapserver::serve_coap();

@@ -8,7 +8,6 @@ use coap_lite::{CoapRequest, CoapResponse, RequestType as Method};
 use std::net::SocketAddr;
 use tokio::runtime::Runtime;
 
-use crate::utils::outsensor;
 use crate::utils::sensordata;
 use crate::utils::urlmap;
 
@@ -39,7 +38,7 @@ fn resp_list_sensors(_payload: Option<&str>) -> (String, String) {
 }
 
 fn resp_avg_out(_payload: Option<&str>) -> (String, String) {
-    let skey = outsensor::get();
+    let skey = sensordata::outsensor_get();
     let sdata = sensordata::get_avg15(&skey);
 
     match sdata {
@@ -52,7 +51,7 @@ fn resp_set_outsensor(payload: Option<&str>) -> (String, String) {
     match payload {
         None => ("4.00".to_string(), "NO DATA".to_string()),
         Some(data) => {
-            outsensor::set(data);
+            sensordata::outsensor_set(data);
             ("2.05".to_string(), "OK".to_string())
         }
     }
