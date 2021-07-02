@@ -13,7 +13,7 @@ use utils::influxdb;
 use utils::outsensor;
 use utils::sensordata;
 
-build_time!("%A %Y-%m-%d %H:%M:%S");
+build_time!("%A %Y-%m-%d %H:%M:%S UTC");
 fn main() {
     SimpleLogger::init(
         LevelFilter::Info,
