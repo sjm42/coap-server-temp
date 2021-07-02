@@ -3,6 +3,7 @@
 #![feature(async_closure)]
 #![feature(destructuring_assignment)]
 
+use build_timestamp::build_time;
 use log::*;
 use simplelog::*;
 
@@ -12,6 +13,7 @@ use utils::influxdb;
 use utils::outsensor;
 use utils::sensordata;
 
+build_time!("%A %Y-%m-%d %H:%M:%S");
 fn main() {
     SimpleLogger::init(
         LevelFilter::Info,
@@ -20,7 +22,7 @@ fn main() {
             .build(),
     )
     .unwrap();
-    info!("CoAP server initializing");
+    info!("CoAP server (built {}) initializing", BUILD_TIME);
     influxdb::init();
     outsensor::init();
     sensordata::init();

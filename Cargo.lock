@@ -161,6 +161,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "build_timestamp"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a6db6925f09211a518465026e94ca1ca2c57d13b982296861be67e34f35ab016"
+dependencies = [
+ "syn 0.15.44",
+ "time",
+]
+
+[[package]]
 name = "bumpalo"
 version = "3.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -245,6 +255,7 @@ name = "coap-server-temp"
 version = "0.1.0"
 dependencies = [
  "async-std",
+ "build_timestamp",
  "chrono",
  "coap",
  "coap-lite",
