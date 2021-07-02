@@ -1,8 +1,8 @@
 // utils/outsensor.rs
 
+use log::*;
 use std::lazy::*;
 use std::sync::*;
-use log::*;
 
 const DEFAULT_OUTSENSOR: &str = "28F41A2800008091";
 static OUTSENSOR: SyncLazy<Mutex<String>> = SyncLazy::new(|| Mutex::new(String::new()));
@@ -18,8 +18,7 @@ pub fn get() -> String {
     s.to_string()
 }
 
-pub fn set(data: &str)
-{
+pub fn set(data: &str) {
     trace!("outsensor::set({})", data);
     let mut s = OUTSENSOR.lock().unwrap();
     *s = data.to_string();

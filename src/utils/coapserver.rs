@@ -4,86 +4,63 @@ use log::*;
 use std::lazy::*;
 use std::sync::*;
 
-use coap_lite::{RequestType as Method, CoapRequest, CoapResponse};
-use tokio::runtime::Runtime;
+use coap_lite::{CoapRequest, CoapResponse, RequestType as Method};
 use std::net::SocketAddr;
+use tokio::runtime::Runtime;
 
 use crate::utils::outsensor;
 use crate::utils::sensordata;
 use crate::utils::urlmap;
 
-
 const LISTEN_ADDR: &str = "0.0.0.0:5683";
 
-fn resp_store_temp(payload: Option<&str>, code: &mut String, resp: &mut String) {
+fn resp_store_temp(payload: Option<&str>) -> (String, String) {
     match payload {
-        None => {
-            *code = "4.00".to_string();
-            *resp = "NO DATA".to_string();
-        },
+        None => ("4.00".to_string(), "NO DATA".to_string()),
         Some(data) => {
             let indata: Vec<&str> = data.split_whitespace().collect();
             if indata.len() != 2 {
-                *code = "4.00".to_string();
-                *resp = "ILLEGAL DATA".to_string();
-                return;
+                return ("4.00".to_string(), "ILLEGAL DATA".to_string());
             }
             match indata[1].parse::<f32>() {
-                Err(_) => {
-                    *code = "4.00".to_string();
-                    *resp = "ILLEGAL DATA".to_string();
-                },
+                Err(_) => ("4.00".to_string(), "ILLEGAL DATA".to_string()),
                 Ok(temp) => {
                     let sensorid = indata[0];
                     sensordata::add(sensorid, temp);
-                    *code = "2.05".to_string();
-                    *resp = "OK".to_string();
-                },
+                    ("2.05".to_string(), "OK".to_string())
+                }
             }
-        },
+        }
     }
 }
 
-fn resp_list_sensors(_payload: Option<&str>, code: &mut String, resp: &mut String) {
-    *code = "2.05".to_string();
-    *resp = sensordata::sensor_list().join(" ");
+fn resp_list_sensors(_payload: Option<&str>) -> (String, String) {
+    ("2.05".to_string(), sensordata::sensor_list().join(" "))
 }
 
-fn resp_avg_out(_payload: Option<&str>, code: &mut String, resp: &mut String) {
+fn resp_avg_out(_payload: Option<&str>) -> (String, String) {
     let skey = outsensor::get();
     let sdata = sensordata::get_avg15(&skey);
 
     match sdata {
-        None => {
-            *code = "5.03".to_string();
-            *resp = "NO DATA".to_string();
-        },
-        Some(avg) => {
-            let avg_out = format!("{:.2}", avg);
-            *code = "2.05".to_string();
-            *resp = avg_out;
-        },
+        None => ("5.03".to_string(), "NO DATA".to_string()),
+        Some(avg) => ("2.05".to_string(), format!("{:.2}", avg)),
     }
 }
 
-fn resp_set_outsensor(payload: Option<&str>, code: &mut String, resp: &mut String) {
+fn resp_set_outsensor(payload: Option<&str>) -> (String, String) {
     match payload {
-        None => {
-            *code = "4.00".to_string();
-            *resp = "NO DATA".to_string();
-        },
+        None => ("4.00".to_string(), "NO DATA".to_string()),
         Some(data) => {
             outsensor::set(data);
-            *code = "2.05".to_string();
-            *resp = "OK".to_string();
-        },
+            ("2.05".to_string(), "OK".to_string())
+        }
     }
 }
 
-fn resp_dump(_payload: Option<&str>, code: &mut String, resp: &mut String) {
+fn resp_dump(_payload: Option<&str>) -> (String, String) {
     sensordata::dump();
-    *code = "2.05".to_string();
-    *resp = "OK".to_string();
+    ("2.05".to_string(), "OK".to_string())
 }
 
 static CNT: SyncLazy<Mutex<u64>> = SyncLazy::new(|| Mutex::new(0u64));
@@ -96,23 +73,29 @@ async fn handle_coap_req(request: CoapRequest<SocketAddr>) -> Option<CoapRespons
         i_save = *i;
     }
     let url_path = request.get_path();
-    let mut resp_code = String::new();
-    let mut resp= String::new();
+    let resp_code;
+    let resp;
     let ip_s;
     match request.source {
         None => {
             ip_s = "<none>".to_string();
-        },
+        }
         Some(ip) => {
             ip_s = ip.to_string();
-        },
+        }
     }
-    info!("#{} {} {:?} /{}", i_save, ip_s, request.get_method(), url_path);
+    info!(
+        "#{} {} {:?} /{}",
+        i_save,
+        ip_s,
+        request.get_method(),
+        url_path
+    );
 
     match *request.get_method() {
         Method::Get => {
-            urlmap::get(url_path.as_str())(None, &mut resp_code, &mut resp);
-        },
+            (resp_code, resp) = urlmap::get(url_path.as_str())(None);
+        }
         Method::Post => {
             let payload_o = String::from_utf8(request.message.payload);
             match payload_o {
@@ -120,28 +103,28 @@ async fn handle_coap_req(request: CoapRequest<SocketAddr>) -> Option<CoapRespons
                     error!("--> UTF-8 decode error: {:?}", e);
                     resp_code = "4.00".to_string();
                     resp = "BAD REQUEST".to_string();
-                },
+                }
                 Ok(payload) => {
                     info!("<-- payload: {}", payload);
-                    urlmap::get(url_path.as_str())(Some(&payload), &mut resp_code, &mut resp);
-                },
+                    (resp_code, resp) = urlmap::get(url_path.as_str())(Some(&payload));
+                }
             }
-        },
+        }
         _ => {
             error!("--> Unsupported CoAP method {:?}", request.get_method());
             resp_code = "4.00".to_string();
             resp = "BAD REQUEST".to_string();
-        },
+        }
     }
     info!("--> {} {}", resp_code, resp);
-    let resp_b = resp.as_bytes();
     match request.response {
         Some(mut message) => {
             message.message.header.set_code(&resp_code);
+            let resp_b = resp.as_bytes();
             message.message.payload = resp_b.to_vec();
             Some(message)
-        },
-        _ => None
+        }
+        _ => None,
     }
 }
 

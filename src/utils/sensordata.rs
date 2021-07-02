@@ -9,7 +9,6 @@ use std::time;
 
 use crate::utils::tbuf;
 
-
 type SensorData = HashMap<String, tbuf::Tbuf>;
 static SDATA: SyncLazy<Mutex<SensorData>> = SyncLazy::new(|| Mutex::new(SensorData::new()));
 
@@ -21,7 +20,9 @@ fn sensordata_expire() {
             let mut sd = SDATA.lock().unwrap();
             for (_sensorid, tbuf) in sd.iter_mut() {
                 let len1 = tbuf.len();
-                if tbuf.expire() { tbuf.upd_avg(); }
+                if tbuf.expire() {
+                    tbuf.upd_avg();
+                }
                 let n_exp = len1 - tbuf.len();
                 if n_exp > 0 {
                     trace!("Expired: sensor {} n_exp={}", _sensorid, n_exp);
@@ -72,16 +73,17 @@ pub fn get_avg15(sensorid: &str) -> Option<f32> {
 
 pub fn sensor_list() -> Vec<String> {
     let sd = SDATA.lock().unwrap();
-    let list = sd.keys().cloned()
-        .collect::<Vec<_>>();
+    let list = sd.keys().cloned().collect::<Vec<_>>();
     trace!("sensordata::sensor_list() --> {:?}", list);
     list
 }
 
 pub fn sensor_list3() -> Vec<String> {
     let sd = SDATA.lock().unwrap();
-    let list = sd.keys()
-        .filter(|s| sd.get(*s).unwrap().len() >= 3).cloned()
+    let list = sd
+        .keys()
+        .filter(|s| sd.get(*s).unwrap().len() >= 3)
+        .cloned()
         .collect::<Vec<_>>();
     trace!("sensordata::sensor_list3() --> {:?}", list);
     list

@@ -1,12 +1,11 @@
 // utils/urlmap.rs
 
-use std::collections::HashMap;
 use log::*;
+use std::collections::HashMap;
 use std::lazy::*;
 use std::sync::*;
 
-
-pub type UrlHandler = fn(Option<&str>, &mut String, &mut String);
+pub type UrlHandler = fn(Option<&str>) -> (String, String);
 struct UrlMap {
     map: HashMap<&'static str, UrlHandler>,
     default: UrlHandler,
@@ -29,10 +28,12 @@ impl UrlMap {
 
 static URLMAP: SyncLazy<Mutex<UrlMap>> = SyncLazy::new(|| Mutex::new(UrlMap::new()));
 
-fn resp_notfound(payload: Option<&str>, code: &mut String, resp: &mut String) {
-    trace!("UrlHandler::resp_notfound: payload={}", payload.unwrap_or(&"<none>".to_string()));
-    *code = "4.04".to_string();
-    *resp = "NOT FOUND".to_string();
+fn resp_notfound(payload: Option<&str>) -> (String, String) {
+    trace!(
+        "UrlHandler::resp_notfound: payload={}",
+        payload.unwrap_or(&"<none>".to_string())
+    );
+    ("4.04".to_string(), "NOT FOUND".to_string())
 }
 
 pub fn init() {

@@ -1,24 +1,23 @@
 // utils/influxdb.rs
 
-use log::*;
+use async_std::*;
 use chrono::*;
+use influxdb_client::*;
+use log::*;
 use std::io::Write;
 use std::process::*;
 use std::{thread, time};
-use async_std::*;
-use influxdb_client::*;
 
 use crate::utils::sensordata;
-
 
 const INFLUX_BINARY: &str = "/usr/bin/influx";
 const INFLUXDB_BUCKET: &str = "temperature";
 const INFLUXDB_MEASUREMENT: &str = "temperature";
 
 const INFLUXDB_URL: &str = "http://localhost:8086";
-const INFLUXDB_TOKEN: &str = "W1o2562R92QdkcGmZOGiMROv_JIb773tS_wskzUed7bLJuOVVJ9y2rBKvaY3r7zmzIK7flzyW1F6SlRTqsJDYw==";
+const INFLUXDB_TOKEN: &str =
+    "W1o2562R92QdkcGmZOGiMROv_JIb773tS_wskzUed7bLJuOVVJ9y2rBKvaY3r7zmzIK7flzyW1F6SlRTqsJDYw==";
 const INFLUXDB_ORG: &str = "siuro";
-
 
 fn influx_send_ext(line_data: &str) {
     // Run the external influx command to write data.
@@ -32,21 +31,27 @@ fn influx_send_ext(line_data: &str) {
     // Luckily, this is only done once per minute, so it is not a performance issue.
 
     info!("IDB line data:\n{}", line_data);
-    let mut p = Command::new(INFLUX_BINARY).arg("write")
-        .arg("--precision").arg("s")
-        .arg("--bucket").arg(INFLUXDB_BUCKET)
+    let mut p = Command::new(INFLUX_BINARY)
+        .arg("write")
+        .arg("--precision")
+        .arg("s")
+        .arg("--bucket")
+        .arg(INFLUXDB_BUCKET)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
-        .spawn().unwrap();
+        .spawn()
+        .unwrap();
     let p_in = p.stdin.as_mut().unwrap();
     p_in.write_all(line_data.as_bytes()).unwrap();
     let out = p.wait_with_output().unwrap();
     if !out.status.success() || !out.stdout.is_empty() || !out.stderr.is_empty() {
-        error!("influx command failed, exit status {}\nstderr:\n{}\nstdout:\n{}\n",
-               out.status.code().unwrap(),
-               String::from_utf8(out.stderr).unwrap(),
-               String::from_utf8(out.stdout).unwrap());
+        error!(
+            "influx command failed, exit status {}\nstderr:\n{}\nstdout:\n{}\n",
+            out.status.code().unwrap(),
+            String::from_utf8(out.stderr).unwrap(),
+            String::from_utf8(out.stdout).unwrap()
+        );
     }
 }
 
@@ -64,7 +69,16 @@ fn db_send_ext() {
 
         line_data.clear();
         for sensorid in sensordata::sensor_list3() {
-            line_data.push_str(format!("{},sensor={} value={:.2} {}\n", INFLUXDB_MEASUREMENT, sensorid, sensordata::get_avg5(&sensorid).unwrap(), ts60).as_str());
+            line_data.push_str(
+                format!(
+                    "{},sensor={} value={:.2} {}\n",
+                    INFLUXDB_MEASUREMENT,
+                    sensorid,
+                    sensordata::get_avg5(&sensorid).unwrap(),
+                    ts60
+                )
+                .as_str(),
+            );
         }
         // Only send if we have anything to send...
         if !line_data.is_empty() {
@@ -105,10 +119,10 @@ fn db_send_native() {
             let f = c.insert_points(&pts, TimestampOptions::FromPoint);
             let res = task::block_on(f);
             match res {
-                Ok(_) => {},
+                Ok(_) => {}
                 Err(e) => {
                     error!("InfluxDB client error: {:?}", e);
-                },
+                }
             }
         }
     }
@@ -121,6 +135,5 @@ pub fn init() {
         // db_send_native();
         db_send_ext();
     });
-
 }
 // EOF

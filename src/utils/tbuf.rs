@@ -1,8 +1,7 @@
 // utils/tbuf.rs
 
-use std::time::*;
 use log::*;
-
+use std::time::*;
 
 #[derive(Debug)]
 pub struct Tdata {
@@ -13,7 +12,8 @@ pub struct Tdata {
 #[allow(dead_code)]
 impl Tdata {
     pub fn new<A>(args: A) -> Tdata
-        where A: Into<Tdata>
+    where
+        A: Into<Tdata>,
     {
         args.into()
     }
@@ -31,22 +31,15 @@ impl From<f32> for Tdata {
             data: d,
         }
     }
-
 }
 impl From<(f32, SystemTime)> for Tdata {
     fn from((d, t): (f32, SystemTime)) -> Tdata {
-        Tdata {
-            ts: t,
-            data: d,
-        }
+        Tdata { ts: t, data: d }
     }
 }
 impl From<(SystemTime, f32)> for Tdata {
     fn from((t, d): (SystemTime, f32)) -> Tdata {
-        Tdata {
-            ts: t,
-            data: d,
-        }
+        Tdata { ts: t, data: d }
     }
 }
 
@@ -62,7 +55,7 @@ impl Tbuf {
     pub fn new() -> Tbuf {
         trace!("Tbuf::new()");
         Tbuf {
-            expire: 15*60, // store 15 minutes worth of data
+            expire: 15 * 60, // store 15 minutes worth of data
             avg5: f32::NAN,
             avg15: f32::NAN,
             buf: Vec::new(),
@@ -91,8 +84,7 @@ impl Tbuf {
                 changed = true;
                 let _exp_data = self.buf.remove(0);
                 trace!("Tbuf expired tdata: {:?}", _exp_data);
-            }
-            else {
+            } else {
                 // The items are age ordered and thus we stop
                 // when the oldest non-expired item is found
                 break;
@@ -116,8 +108,8 @@ impl Tbuf {
 
         // create 5min and 15min expiration times
         let now = SystemTime::now();
-        let exp5 = now.checked_sub(Duration::from_secs(5*60)).unwrap();
-        let exp15 = now.checked_sub(Duration::from_secs(15*60)).unwrap();
+        let exp5 = now.checked_sub(Duration::from_secs(5 * 60)).unwrap();
+        let exp15 = now.checked_sub(Duration::from_secs(15 * 60)).unwrap();
 
         for i in (0..self.buf.len()).rev() {
             if self.buf[i].ts >= exp5 {
