@@ -74,7 +74,7 @@ fn db_send_ext() {
                     "{},sensor={} value={:.2} {}\n",
                     INFLUXDB_MEASUREMENT,
                     sensorid,
-                    sensordata::get_avg5(&sensorid).unwrap(),
+                    sensordata::get_avg(&sensorid, sensordata::AVG_T_TDB).unwrap(),
                     ts60
                 )
                 .as_str(),
@@ -107,7 +107,7 @@ fn db_send_native() {
         for sensorid in sensordata::sensor_list3() {
             let p = Point::new(INFLUXDB_MEASUREMENT)
                 .tag("sensor", sensorid.as_str())
-                .field("value", sensordata::get_avg5(&sensorid).unwrap() as f64)
+                .field("value", sensordata::get_avg(&sensorid, sensordata::AVG_T_TDB).unwrap())
                 .timestamp(ts60);
             pts.push(p);
         }
@@ -132,8 +132,10 @@ pub fn init() {
     info!("influxdb::init()");
     let _thr_db_send = thread::spawn(|| {
         // Use either of these:
-        // db_send_native();
-        db_send_ext();
+        match false {
+            true => db_send_native(),
+            false => db_send_ext(),
+        }
     });
 }
 // EOF

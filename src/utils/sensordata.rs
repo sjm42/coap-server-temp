@@ -9,17 +9,29 @@ use std::time;
 
 use crate::utils::tbuf;
 
+// our global persistent state, with locking
 type SensorData = HashMap<String, tbuf::Tbuf>;
 static SDATA: SyncLazy<Mutex<SensorData>> = SyncLazy::new(|| Mutex::new(SensorData::new()));
-
-const DEFAULT_OUTSENSOR: &str = "28F41A2800008091";
 static OUTSENSOR: SyncLazy<Mutex<String>> = SyncLazy::new(|| Mutex::new(String::new()));
+
+// my outside temperature sensor id, for convenience
+// can be overridden any time using outsensor_set()
+const DEFAULT_OUTSENSOR: &str = "28F41A2800008091";
+
+
+// use 5min averages for time-series db
+pub const AVG_T_TDB: u64 = 60*5;
+// use 15min averages for outside temperature queries
+pub const AVG_T_OUT: u64 = 60*15;
+
 
 pub fn init() {
     info!("sensordata::init()");
     outsensor_set(DEFAULT_OUTSENSOR);
     // Triggering lazy initialization
-    let _n_sensors = SDATA.lock().unwrap().len();
+    {
+        let _n_sensors = SDATA.lock().unwrap().len();
+    }
     let _thr_expire = thread::spawn(|| {
         sensordata_expire();
     });
@@ -50,34 +62,34 @@ pub fn add(sensorid: &str, temp: f32) {
     trace!("sensordata::add({}, {})", sensorid, temp);
     let mut sd = SDATA.lock().unwrap();
     if !sd.contains_key(sensorid) {
-        let new_tbuf = tbuf::Tbuf::new();
+        let new_tbuf = tbuf::Tbuf::new_avgs(&[AVG_T_TDB, AVG_T_OUT]);
         sd.insert(sensorid.to_string(), new_tbuf);
     }
     let tbuf = sd.get_mut(sensorid).unwrap();
     tbuf.add(tbuf::Tdata::new(temp));
 }
 
-pub fn get_avg5(sensorid: &str) -> Option<f32> {
-    trace!("sensordata::get_avg5({})", sensorid);
+pub fn get_avg(sensorid: &str, t: u64) -> Option<f64> {
+    trace!("sensordata::get_avg({}, {})", sensorid, t);
     let sd = SDATA.lock().unwrap();
     if !sd.contains_key(sensorid) {
         return None;
     }
-    return Some(sd.get(sensorid).unwrap().avg5());
+    Some(sd.get(sensorid).unwrap().avg(t).unwrap())
 }
 
-pub fn get_avg15(sensorid: &str) -> Option<f32> {
-    trace!("sensordata::get_avg15({})", sensorid);
-    let sd = SDATA.lock().unwrap();
-    if !sd.contains_key(sensorid) {
-        return None;
-    }
-    return Some(sd.get(sensorid).unwrap().avg15());
+#[allow(dead_code)]
+pub fn get_avg5(sensorid: &str) -> Option<f64> {
+    get_avg(sensorid, 300)
+}
+
+#[allow(dead_code)]
+pub fn get_avg15(sensorid: &str) -> Option<f64> {
+    get_avg(sensorid, 900)
 }
 
 pub fn sensor_list() -> Vec<String> {
-    let sd = SDATA.lock().unwrap();
-    let list = sd.keys().cloned().collect::<Vec<_>>();
+    let list = SDATA.lock().unwrap().keys().cloned().collect::<Vec<_>>();
     trace!("sensordata::sensor_list() --> {:?}", list);
     list
 }
@@ -103,8 +115,8 @@ pub fn dump() {
 
 pub fn outsensor_get() -> String {
     let s = OUTSENSOR.lock().unwrap();
-    // trace!("outsensor::get() --> {:?}", s);
-    s.to_string()
+    // trace!("outsensor::get() --> {:?}", &s);
+    s.clone()
 }
 
 pub fn outsensor_set(data: &str) {

@@ -11,7 +11,13 @@ use tokio::runtime::Runtime;
 use crate::utils::sensordata;
 use crate::utils::urlmap;
 
+// This should be able to be specified on command line, sorry.
 const LISTEN_ADDR: &str = "0.0.0.0:5683";
+
+// our global persistent state, with locking
+// we just have a simple request counter here
+static CNT: SyncLazy<Mutex<u64>> = SyncLazy::new(|| Mutex::new(0u64));
+
 
 fn resp_store_temp(payload: Option<&str>) -> (String, String) {
     match payload {
@@ -24,8 +30,7 @@ fn resp_store_temp(payload: Option<&str>) -> (String, String) {
             match indata[1].parse::<f32>() {
                 Err(_) => ("4.00".to_string(), "ILLEGAL DATA".to_string()),
                 Ok(temp) => {
-                    let sensorid = indata[0];
-                    sensordata::add(sensorid, temp);
+                    sensordata::add(indata[0], temp);
                     ("2.05".to_string(), "OK".to_string())
                 }
             }
@@ -38,9 +43,7 @@ fn resp_list_sensors(_payload: Option<&str>) -> (String, String) {
 }
 
 fn resp_avg_out(_payload: Option<&str>) -> (String, String) {
-    let skey = sensordata::outsensor_get();
-    let sdata = sensordata::get_avg15(&skey);
-
+    let sdata = sensordata::get_avg(&sensordata::outsensor_get(), sensordata::AVG_T_OUT);
     match sdata {
         None => ("5.03".to_string(), "NO DATA".to_string()),
         Some(avg) => ("2.05".to_string(), format!("{:.2}", avg)),
@@ -62,18 +65,18 @@ fn resp_dump(_payload: Option<&str>) -> (String, String) {
     ("2.05".to_string(), "OK".to_string())
 }
 
-static CNT: SyncLazy<Mutex<u64>> = SyncLazy::new(|| Mutex::new(0u64));
-
 async fn handle_coap_req(request: CoapRequest<SocketAddr>) -> Option<CoapResponse> {
     let i_save;
     {
+        // increment the request counter and save the value after releasing the lock
         let mut i = CNT.lock().unwrap();
         *i += 1;
         i_save = *i;
     }
     let url_path = request.get_path();
-    let resp_code;
-    let resp;
+    let ret;
+    let resp_code: &str;
+    let resp: &str;
     let ip_s;
     match request.source {
         None => {
@@ -93,32 +96,36 @@ async fn handle_coap_req(request: CoapRequest<SocketAddr>) -> Option<CoapRespons
 
     match *request.get_method() {
         Method::Get => {
-            (resp_code, resp) = urlmap::get(url_path.as_str())(None);
+            ret = urlmap::get(url_path.as_str())(None);
+            resp_code = ret.0.as_str();
+            resp = ret.1.as_str();
         }
         Method::Post => {
             let payload_o = String::from_utf8(request.message.payload);
             match payload_o {
                 Err(e) => {
                     error!("--> UTF-8 decode error: {:?}", e);
-                    resp_code = "4.00".to_string();
-                    resp = "BAD REQUEST".to_string();
+                    resp_code = "4.00";
+                    resp = "BAD REQUEST";
                 }
                 Ok(payload) => {
                     info!("<-- payload: {}", payload);
-                    (resp_code, resp) = urlmap::get(url_path.as_str())(Some(&payload));
+                    ret = urlmap::get(url_path.as_str())(Some(&payload));
+                    resp_code = ret.0.as_str();
+                    resp = ret.1.as_str();
                 }
             }
         }
         _ => {
             error!("--> Unsupported CoAP method {:?}", request.get_method());
-            resp_code = "4.00".to_string();
-            resp = "BAD REQUEST".to_string();
+            resp_code = "4.00";
+            resp = "BAD REQUEST";
         }
     }
     info!("--> {} {}", resp_code, resp);
     match request.response {
         Some(mut message) => {
-            message.message.header.set_code(&resp_code);
+            message.message.header.set_code(resp_code);
             let resp_b = resp.as_bytes();
             message.message.payload = resp_b.to_vec();
             Some(message)
@@ -138,7 +145,7 @@ pub fn init() {
     urlmap::add("dump", resp_dump);
     info!("Have {} URL responders.", urlmap::len());
     {
-        // reset request counter
+        // reset the request counter
         let mut i = CNT.lock().unwrap();
         *i = 0;
     }

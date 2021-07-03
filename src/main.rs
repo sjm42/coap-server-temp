@@ -14,6 +14,7 @@ use utils::sensordata;
 
 build_time!("%A %Y-%m-%d %H:%M:%S UTC");
 fn main() {
+    // The loglevel should be able to be specified on command line, sorry.
     SimpleLogger::init(
         LevelFilter::Info,
         ConfigBuilder::new()
