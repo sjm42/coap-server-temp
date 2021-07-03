@@ -18,12 +18,10 @@ static OUTSENSOR: SyncLazy<Mutex<String>> = SyncLazy::new(|| Mutex::new(String::
 // can be overridden any time using outsensor_set()
 const DEFAULT_OUTSENSOR: &str = "28F41A2800008091";
 
-
 // use 5min averages for time-series db
-pub const AVG_T_TDB: u64 = 60*5;
+pub const AVG_T_TDB: u64 = 60 * 5;
 // use 15min averages for outside temperature queries
-pub const AVG_T_OUT: u64 = 60*15;
-
+pub const AVG_T_OUT: u64 = 60 * 15;
 
 pub fn init() {
     info!("sensordata::init()");

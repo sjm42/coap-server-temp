@@ -107,7 +107,10 @@ fn db_send_native() {
         for sensorid in sensordata::sensor_list3() {
             let p = Point::new(INFLUXDB_MEASUREMENT)
                 .tag("sensor", sensorid.as_str())
-                .field("value", sensordata::get_avg(&sensorid, sensordata::AVG_T_TDB).unwrap())
+                .field(
+                    "value",
+                    sensordata::get_avg(&sensorid, sensordata::AVG_T_TDB).unwrap(),
+                )
                 .timestamp(ts60);
             pts.push(p);
         }

@@ -6,7 +6,7 @@ use std::time::*;
 #[derive(Debug)]
 pub struct Tdata {
     ts: SystemTime,
-    data: f64
+    data: f64,
 }
 
 #[allow(dead_code)]
@@ -28,7 +28,7 @@ impl From<f32> for Tdata {
     fn from(d: f32) -> Tdata {
         Tdata {
             ts: SystemTime::now(),
-            data: d as f64
+            data: d as f64,
         }
     }
 }
@@ -42,22 +42,28 @@ impl From<f64> for Tdata {
 }
 impl From<(f32, SystemTime)> for Tdata {
     fn from((d, t): (f32, SystemTime)) -> Tdata {
-        Tdata { ts: t, data: d as f64 }
+        Tdata {
+            ts: t,
+            data: d as f64,
+        }
     }
 }
 impl From<(SystemTime, f32)> for Tdata {
     fn from((t, d): (SystemTime, f32)) -> Tdata {
-        Tdata { ts: t, data: d as f64}
+        Tdata {
+            ts: t,
+            data: d as f64,
+        }
     }
 }
 impl From<(f64, SystemTime)> for Tdata {
     fn from((d, t): (f64, SystemTime)) -> Tdata {
-        Tdata { ts: t, data: d}
+        Tdata { ts: t, data: d }
     }
 }
 impl From<(SystemTime, f64)> for Tdata {
     fn from((t, d): (SystemTime, f64)) -> Tdata {
-        Tdata { ts: t, data: d}
+        Tdata { ts: t, data: d }
     }
 }
 
@@ -66,7 +72,7 @@ pub struct Tbuf {
     avgs: Vec<f64>,
     avgs_t: Vec<u64>,
     buf: Vec<Tdata>,
-    buf_expire: u64
+    buf_expire: u64,
 }
 
 #[allow(dead_code)]
@@ -77,7 +83,7 @@ impl Tbuf {
             avgs: Vec::new(),
             avgs_t: expires.to_vec(),
             buf: Vec::new(),
-            buf_expire: *expires.iter().max().unwrap()
+            buf_expire: *expires.iter().max().unwrap(),
         };
         // Vector avgs is guaranteed to be of same length as avgs_t
         // so we are filling it up here now.
@@ -86,10 +92,10 @@ impl Tbuf {
         }
         tbuf
     }
-    // Default constructor will create 5min and 15min averages
+    // Default constructor will create 5min and 15min averages (deprecated)
     pub fn new() -> Tbuf {
         trace!("Tbuf::new()");
-        Tbuf::new_avgs(&[5*60, 15*60])
+        Tbuf::new_avgs(&[5 * 60, 15 * 60])
     }
 
     pub fn len(&self) -> usize {
@@ -102,29 +108,28 @@ impl Tbuf {
     }
     pub fn avg(&self, t: u64) -> Option<f64> {
         for i in 0..self.avgs_t.len() {
-            if t == self.avgs_t[i] { return Some(self.avgs[i]); }
+            if t == self.avgs_t[i] {
+                return Some(self.avgs[i]);
+            }
         }
         None
     }
-    pub fn avg5(&self) -> f64
-    {
+    pub fn avg5(&self) -> f64 {
         match self.avg(300) {
             None => f64::NAN,
-            Some(a) => a
+            Some(a) => a,
         }
     }
-    pub fn avg10(&self) -> f64
-    {
+    pub fn avg10(&self) -> f64 {
         match self.avg(600) {
             None => f64::NAN,
-            Some(a) => a
+            Some(a) => a,
         }
     }
-    pub fn avg15(&self) -> f64
-    {
+    pub fn avg15(&self) -> f64 {
         match self.avg(900) {
             None => f64::NAN,
-            Some(a) => a
+            Some(a) => a,
         }
     }
     pub fn expire(&mut self) -> bool {
@@ -163,7 +168,10 @@ impl Tbuf {
         for i in 0..n_avg {
             sums.push(0.0f64);
             sizes.push(0u64);
-            too_old.push(now.checked_sub(Duration::from_secs(self.avgs_t[i])).unwrap());
+            too_old.push(
+                now.checked_sub(Duration::from_secs(self.avgs_t[i]))
+                    .unwrap(),
+            );
         }
 
         for buf_i in 0..self.buf.len() {

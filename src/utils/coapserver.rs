@@ -18,7 +18,6 @@ const LISTEN_ADDR: &str = "0.0.0.0:5683";
 // we just have a simple request counter here
 static CNT: SyncLazy<Mutex<u64>> = SyncLazy::new(|| Mutex::new(0u64));
 
-
 fn resp_store_temp(payload: Option<&str>) -> (String, String) {
     match payload {
         None => ("4.00".to_string(), "NO DATA".to_string()),
