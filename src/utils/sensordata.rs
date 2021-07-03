@@ -44,7 +44,7 @@ fn sensordata_expire() {
             for (_sensorid, tbuf) in sd.iter_mut() {
                 let len1 = tbuf.len();
                 if tbuf.expire() {
-                    tbuf.upd_avg();
+                    tbuf.update_avgs();
                 }
                 let n_exp = len1 - tbuf.len();
                 if n_exp > 0 {
@@ -60,8 +60,10 @@ pub fn add(sensorid: &str, temp: f32) {
     trace!("sensordata::add({}, {})", sensorid, temp);
     let mut sd = SDATA.lock().unwrap();
     if !sd.contains_key(sensorid) {
-        let new_tbuf = tbuf::Tbuf::new_avgs(&[AVG_T_TDB, AVG_T_OUT]);
-        sd.insert(sensorid.to_string(), new_tbuf);
+        sd.insert(
+            sensorid.to_string(),
+            tbuf::Tbuf::new(&[AVG_T_TDB, AVG_T_OUT]),
+        );
     }
     let tbuf = sd.get_mut(sensorid).unwrap();
     tbuf.add(tbuf::Tdata::new(temp));
@@ -73,17 +75,7 @@ pub fn get_avg(sensorid: &str, t: u64) -> Option<f64> {
     if !sd.contains_key(sensorid) {
         return None;
     }
-    Some(sd.get(sensorid).unwrap().avg(t).unwrap())
-}
-
-#[allow(dead_code)]
-pub fn get_avg5(sensorid: &str) -> Option<f64> {
-    get_avg(sensorid, 300)
-}
-
-#[allow(dead_code)]
-pub fn get_avg15(sensorid: &str) -> Option<f64> {
-    get_avg(sensorid, 900)
+    sd.get(sensorid).unwrap().avg(t)
 }
 
 pub fn sensor_list() -> Vec<String> {

@@ -77,7 +77,7 @@ pub struct Tbuf {
 
 #[allow(dead_code)]
 impl Tbuf {
-    pub fn new_avgs(expires: &[u64]) -> Tbuf {
+    pub fn new(expires: &[u64]) -> Tbuf {
         trace!("Tbuf::new_avgs()");
         let mut tbuf = Tbuf {
             avgs_t: expires.to_vec(),
@@ -92,11 +92,6 @@ impl Tbuf {
         }
         tbuf
     }
-    // Default constructor will create 5min and 15min averages (deprecated)
-    pub fn new() -> Tbuf {
-        trace!("Tbuf::new()");
-        Tbuf::new_avgs(&[5 * 60, 15 * 60])
-    }
     pub fn set_avgs(&mut self, expires: &[u64]) {
         self.avgs_t = expires.to_vec();
         self.buf_expire = *expires.iter().max().unwrap();
@@ -104,7 +99,7 @@ impl Tbuf {
         for _a in expires.iter() {
             self.avgs.push(f64::NAN);
         }
-        self.upd_avg();
+        self.update_avgs();
     }
     pub fn len(&self) -> usize {
         self.buf.len()
@@ -112,7 +107,7 @@ impl Tbuf {
     pub fn add(&mut self, d: Tdata) {
         trace!("Tbuf::add({:?})", d);
         self.buf.push(d);
-        self.upd_avg();
+        self.update_avgs();
     }
     pub fn avg(&self, t: u64) -> Option<f64> {
         for i in 0..self.avgs_t.len() {
@@ -121,24 +116,6 @@ impl Tbuf {
             }
         }
         None
-    }
-    pub fn avg5(&self) -> f64 {
-        match self.avg(300) {
-            None => f64::NAN,
-            Some(a) => a,
-        }
-    }
-    pub fn avg10(&self) -> f64 {
-        match self.avg(600) {
-            None => f64::NAN,
-            Some(a) => a,
-        }
-    }
-    pub fn avg15(&self) -> f64 {
-        match self.avg(900) {
-            None => f64::NAN,
-            Some(a) => a,
-        }
     }
     pub fn expire(&mut self) -> bool {
         let too_old = SystemTime::now()
@@ -159,7 +136,7 @@ impl Tbuf {
         // trace!("(tbuf expire)Tbuf len: {}", self.buf.len());
         changed
     }
-    pub fn upd_avg(&mut self) {
+    pub fn update_avgs(&mut self) {
         let n_avg = self.avgs_t.len();
         // is it empty?
         if self.buf.is_empty() {
