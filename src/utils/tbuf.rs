@@ -69,10 +69,10 @@ impl From<(SystemTime, f64)> for Tdata {
 
 #[derive(Debug)]
 pub struct Tbuf {
-    avgs: Vec<f64>,
     avgs_t: Vec<u64>,
-    buf: Vec<Tdata>,
     buf_expire: u64,
+    avgs: Vec<f64>,
+    buf: Vec<Tdata>,
 }
 
 #[allow(dead_code)]
@@ -80,10 +80,10 @@ impl Tbuf {
     pub fn new_avgs(expires: &[u64]) -> Tbuf {
         trace!("Tbuf::new_avgs()");
         let mut tbuf = Tbuf {
-            avgs: Vec::new(),
             avgs_t: expires.to_vec(),
-            buf: Vec::new(),
             buf_expire: *expires.iter().max().unwrap(),
+            avgs: Vec::with_capacity(expires.len()),
+            buf: Vec::new(),
         };
         // Vector avgs is guaranteed to be of same length as avgs_t
         // so we are filling it up here now.
@@ -97,7 +97,15 @@ impl Tbuf {
         trace!("Tbuf::new()");
         Tbuf::new_avgs(&[5 * 60, 15 * 60])
     }
-
+    pub fn set_avgs(&mut self, expires: &[u64]) {
+        self.avgs_t = expires.to_vec();
+        self.buf_expire = *expires.iter().max().unwrap();
+        self.avgs = Vec::with_capacity(expires.len());
+        for _a in expires.iter() {
+            self.avgs.push(f64::NAN);
+        }
+        self.upd_avg();
+    }
     pub fn len(&self) -> usize {
         self.buf.len()
     }
@@ -160,7 +168,6 @@ impl Tbuf {
             }
             return;
         }
-
         let now = SystemTime::now();
         let mut sums = Vec::with_capacity(n_avg);
         let mut sizes = Vec::with_capacity(n_avg);
@@ -173,7 +180,6 @@ impl Tbuf {
                     .unwrap(),
             );
         }
-
         for buf_i in 0..self.buf.len() {
             for avg_i in 0..n_avg {
                 if self.buf[buf_i].ts > too_old[avg_i] {
@@ -183,7 +189,10 @@ impl Tbuf {
             }
         }
         for avg_i in 0..n_avg {
-            self.avgs[avg_i] = sums[avg_i] / sizes[avg_i] as f64;
+            self.avgs[avg_i] = match sizes[avg_i] {
+                0 => f64::NAN,
+                sz => sums[avg_i] / sz as f64,
+            };
         }
     }
 }
