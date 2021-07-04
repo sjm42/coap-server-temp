@@ -11,9 +11,6 @@ use tokio::runtime::Runtime;
 use crate::utils::sensordata;
 use crate::utils::urlmap;
 
-// This should be able to be specified on command line, sorry.
-const LISTEN_ADDR: &str = "0.0.0.0:5683";
-
 // our global persistent state, with locking
 // we just have a simple request counter here
 static CNT: SyncLazy<Mutex<u64>> = SyncLazy::new(|| Mutex::new(0u64));
@@ -42,8 +39,8 @@ fn resp_list_sensors(_payload: Option<&str>) -> (String, String) {
 }
 
 fn resp_avg_out(_payload: Option<&str>) -> (String, String) {
-    let sdata = sensordata::get_avg(&sensordata::outsensor_get(), sensordata::AVG_T_OUT);
-    match sdata {
+    let t_out = sensordata::get_avg_out();
+    match t_out {
         None => ("5.03".to_string(), "NO DATA".to_string()),
         Some(avg) => ("2.05".to_string(), format!("{:.2}", avg)),
     }
@@ -53,7 +50,7 @@ fn resp_set_outsensor(payload: Option<&str>) -> (String, String) {
     match payload {
         None => ("4.00".to_string(), "NO DATA".to_string()),
         Some(data) => {
-            sensordata::outsensor_set(data);
+            sensordata::set_outsensor(data);
             ("2.05".to_string(), "OK".to_string())
         }
     }
@@ -150,11 +147,11 @@ pub fn init() {
     }
 }
 
-pub fn serve_coap() {
+pub fn serve_coap(listen: &str) {
     let mut rt = Runtime::new().unwrap();
     rt.block_on(async move {
-        let mut server = coap::Server::new(LISTEN_ADDR).unwrap();
-        info!("Server up on {}", LISTEN_ADDR);
+        let mut server = coap::Server::new(listen).unwrap();
+        info!("Server up on {}", listen);
         server.run(handle_coap_req).await.unwrap();
     });
 }

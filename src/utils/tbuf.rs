@@ -69,34 +69,34 @@ impl From<(SystemTime, f64)> for Tdata {
 
 #[derive(Debug)]
 pub struct Tbuf {
-    avgs_t: Vec<u64>,
     buf_expire: u64,
+    avgs_t: Vec<u64>,
     avgs: Vec<f64>,
     buf: Vec<Tdata>,
 }
 
 #[allow(dead_code)]
 impl Tbuf {
-    pub fn new(expires: &[u64]) -> Tbuf {
+    pub fn new(avgs_t: &[u64]) -> Tbuf {
         trace!("Tbuf::new_avgs()");
         let mut tbuf = Tbuf {
-            avgs_t: expires.to_vec(),
-            buf_expire: *expires.iter().max().unwrap(),
-            avgs: Vec::with_capacity(expires.len()),
+            buf_expire: *avgs_t.iter().max().unwrap(),
+            avgs_t: avgs_t.to_vec(),
+            avgs: Vec::with_capacity(avgs_t.len()),
             buf: Vec::new(),
         };
         // Vector avgs is guaranteed to be of same length as avgs_t
         // so we are filling it up here now.
-        for _a in expires.iter() {
+        for _a in avgs_t.iter() {
             tbuf.avgs.push(f64::NAN);
         }
         tbuf
     }
-    pub fn set_avgs(&mut self, expires: &[u64]) {
-        self.avgs_t = expires.to_vec();
-        self.buf_expire = *expires.iter().max().unwrap();
-        self.avgs = Vec::with_capacity(expires.len());
-        for _a in expires.iter() {
+    pub fn set_avgs(&mut self, avgs_t: &[u64]) {
+        self.buf_expire = *avgs_t.iter().max().unwrap();
+        self.avgs_t = avgs_t.to_vec();
+        self.avgs = Vec::with_capacity(avgs_t.len());
+        for _a in avgs_t.iter() {
             self.avgs.push(f64::NAN);
         }
         self.update_avgs();

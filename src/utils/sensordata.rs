@@ -12,23 +12,23 @@ use crate::utils::tbuf;
 // our global persistent state, with locking
 type SensorData = HashMap<String, tbuf::Tbuf>;
 static SDATA: SyncLazy<Mutex<SensorData>> = SyncLazy::new(|| Mutex::new(SensorData::new()));
-static OUTSENSOR: SyncLazy<Mutex<String>> = SyncLazy::new(|| Mutex::new(String::new()));
+static OUT_SENSOR: SyncLazy<Mutex<String>> = SyncLazy::new(|| Mutex::new(String::new()));
+static AVGS_T: SyncLazy<Mutex<Vec<u64>>> = SyncLazy::new(|| Mutex::new(Vec::new()));
 
-// my outside temperature sensor id, for convenience
-// can be overridden any time using outsensor_set()
-const DEFAULT_OUTSENSOR: &str = "28F41A2800008091";
-
-// use 5min averages for time-series db
-pub const AVG_T_TDB: u64 = 60 * 5;
-// use 15min averages for outside temperature queries
-pub const AVG_T_OUT: u64 = 60 * 15;
-
-pub fn init() {
+// Note:
+// avgs_t[0] is used for returning the outside temp average
+// avgs_t[1] is used for the average temp to be sent to db
+pub fn init(out_sensor: &str, avgs_t: &[u64]) {
     info!("sensordata::init()");
-    outsensor_set(DEFAULT_OUTSENSOR);
-    // Triggering lazy initialization
+    if avgs_t.len() != 2 {
+        panic!("Must have exactly two avgs");
+    }
+    set_outsensor(out_sensor);
+    // Triggering lazy initializations
     {
         let _n_sensors = SDATA.lock().unwrap().len();
+        let mut a_t = AVGS_T.lock().unwrap();
+        *a_t = avgs_t.to_vec();
     }
     let _thr_expire = thread::spawn(|| {
         sensordata_expire();
@@ -60,13 +60,21 @@ pub fn add(sensorid: &str, temp: f32) {
     trace!("sensordata::add({}, {})", sensorid, temp);
     let mut sd = SDATA.lock().unwrap();
     if !sd.contains_key(sensorid) {
-        sd.insert(
-            sensorid.to_string(),
-            tbuf::Tbuf::new(&[AVG_T_TDB, AVG_T_OUT]),
-        );
+        let avgs_t = AVGS_T.lock().unwrap();
+        sd.insert(sensorid.to_string(), tbuf::Tbuf::new(&*avgs_t));
     }
     let tbuf = sd.get_mut(sensorid).unwrap();
     tbuf.add(tbuf::Tdata::new(temp));
+}
+
+pub fn get_avg_t_out() -> u64 {
+    let avgs_t = AVGS_T.lock().unwrap();
+    avgs_t[0]
+}
+
+pub fn get_avg_t_db() -> u64 {
+    let avgs_t = AVGS_T.lock().unwrap();
+    avgs_t[1]
 }
 
 pub fn get_avg(sensorid: &str, t: u64) -> Option<f64> {
@@ -76,6 +84,11 @@ pub fn get_avg(sensorid: &str, t: u64) -> Option<f64> {
         return None;
     }
     sd.get(sensorid).unwrap().avg(t)
+}
+
+pub fn get_avg_out() -> Option<f64> {
+    trace!("sensordata::get_avg_out()");
+    get_avg(&get_outsensor(), get_avg_t_out())
 }
 
 pub fn sensor_list() -> Vec<String> {
@@ -103,15 +116,14 @@ pub fn dump() {
     }
 }
 
-pub fn outsensor_get() -> String {
-    let s = OUTSENSOR.lock().unwrap();
-    // trace!("outsensor::get() --> {:?}", &s);
+pub fn get_outsensor() -> String {
+    let s = OUT_SENSOR.lock().unwrap();
     s.clone()
 }
 
-pub fn outsensor_set(data: &str) {
-    trace!("outsensor::set({})", data);
-    let mut s = OUTSENSOR.lock().unwrap();
+pub fn set_outsensor(data: &str) {
+    trace!("sensordata::set_outsensor({})", data);
+    let mut s = OUT_SENSOR.lock().unwrap();
     *s = data.to_string();
 }
 

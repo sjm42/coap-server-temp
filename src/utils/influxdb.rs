@@ -73,8 +73,8 @@ fn db_send_ext() {
                 format!(
                     "{},sensor={} value={:.2} {}\n",
                     INFLUXDB_MEASUREMENT,
-                    sensorid,
-                    sensordata::get_avg(&sensorid, sensordata::AVG_T_TDB).unwrap(),
+                    &sensorid,
+                    sensordata::get_avg(&sensorid, sensordata::get_avg_t_db()).unwrap(),
                     ts60
                 )
                 .as_str(),
@@ -109,7 +109,7 @@ fn db_send_native() {
                 .tag("sensor", sensorid.as_str())
                 .field(
                     "value",
-                    sensordata::get_avg(&sensorid, sensordata::AVG_T_TDB).unwrap(),
+                    sensordata::get_avg(&sensorid, sensordata::get_avg_t_db()).unwrap(),
                 )
                 .timestamp(ts60);
             pts.push(p);

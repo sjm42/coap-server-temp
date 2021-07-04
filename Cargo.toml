@@ -8,6 +8,7 @@ edition = "2018"
 
 [dependencies]
 build_timestamp = "^0.1"
+structopt = "^0.3"
 log = "^0.4"
 simplelog = "^0.10"
 async-std = "^1.9"
