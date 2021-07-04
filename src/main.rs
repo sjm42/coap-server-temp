@@ -28,7 +28,7 @@ fn main() {
     .unwrap();
 
     info!("CoAP server built {}", BUILD_TIME);
-    info!("Options: {:?}", opt);
+    trace!("Options: {:?}", opt);
     info!("Initializing...");
     influxdb::init(opt.influxdb_interval, &opt);
     sensordata::init(&opt.out_sensor, &[opt.avg_t_out, opt.avg_t_db]);
