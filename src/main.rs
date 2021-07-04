@@ -11,23 +11,9 @@ use structopt::StructOpt;
 mod utils;
 use utils::*;
 
-#[derive(Debug, StructOpt)]
-struct Opt {
-    #[structopt(short, long)]
-    trace: bool,
-    #[structopt(short, long, default_value = "127.0.0.1:5683")]
-    listen: String,
-    #[structopt(short = "s", long, default_value = "0000000000000000")]
-    out_sensor: String,
-    #[structopt(long, default_value = "300")]
-    avg_t_db: u64,
-    #[structopt(long, default_value = "900")]
-    avg_t_out: u64,
-}
-
 build_time!("%A %Y-%m-%d %H:%M:%S UTC");
 fn main() {
-    let opt = Opt::from_args();
+    let opt = options::CoapOpt::from_args();
 
     let loglevel = match opt.trace {
         true => LevelFilter::Trace,
@@ -44,7 +30,7 @@ fn main() {
     info!("CoAP server built {}", BUILD_TIME);
     info!("Options: {:?}", opt);
     info!("Initializing...");
-    influxdb::init();
+    influxdb::init(opt.influxdb_interval, &opt);
     sensordata::init(&opt.out_sensor, &[opt.avg_t_out, opt.avg_t_db]);
     coapserver::init();
     coapserver::serve_coap(&opt.listen);

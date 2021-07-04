@@ -4,22 +4,35 @@ use async_std::*;
 use chrono::*;
 use influxdb_client::*;
 use log::*;
+use std::collections::HashMap;
 use std::io::Write;
 use std::process::*;
 use std::{thread, time};
 
+use crate::utils::options;
 use crate::utils::sensordata;
 
-const INFLUX_BINARY: &str = "/usr/bin/influx";
-const INFLUXDB_BUCKET: &str = "temperature";
-const INFLUXDB_MEASUREMENT: &str = "temperature";
+type InfOpt = HashMap<&'static str, String>;
 
-const INFLUXDB_URL: &str = "http://localhost:8086";
-const INFLUXDB_TOKEN: &str =
-    "W1o2562R92QdkcGmZOGiMROv_JIb773tS_wskzUed7bLJuOVVJ9y2rBKvaY3r7zmzIK7flzyW1F6SlRTqsJDYw==";
-const INFLUXDB_ORG: &str = "siuro";
+pub fn init(interval: i64, opt: &options::CoapOpt) {
+    info!("influxdb::init()");
+    let mut iopt: InfOpt = HashMap::new();
+    iopt.insert("binary", opt.influxdb_binary.clone());
+    iopt.insert("token", opt.influxdb_token.clone());
+    iopt.insert("org", opt.influxdb_org.clone());
+    iopt.insert("bucket", opt.influxdb_bucket.clone());
+    iopt.insert("measurement", opt.influxdb_measurement.clone());
+    iopt.insert("url", opt.influxdb_url.clone());
+    let _thr_db_send = thread::spawn(move || {
+        // Use either of these:
+        match false {
+            true => db_send_native(interval, &iopt),
+            false => db_send_ext(interval, &iopt),
+        }
+    });
+}
 
-fn influx_send_ext(line_data: &str) {
+fn influx_send_ext(binary: &str, bucket: &str, line_data: &str) {
     // Run the external influx command to write data.
     // Here we assume that the user running this has the necessary InfluxDB client configs
     // available in home directory, including URL, Organization and Token.
@@ -31,12 +44,10 @@ fn influx_send_ext(line_data: &str) {
     // Luckily, this is only done once per minute, so it is not a performance issue.
 
     info!("IDB line data:\n{}", line_data);
-    let mut p = Command::new(INFLUX_BINARY)
-        .arg("write")
-        .arg("--precision")
-        .arg("s")
-        .arg("--bucket")
-        .arg(INFLUXDB_BUCKET)
+    let iargs = ["write", "--precision", "s", "--bucket", bucket];
+    info!("Running {} {}", binary, iargs.join(" "));
+    let mut p = Command::new(binary)
+        .args(&iargs)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -55,34 +66,36 @@ fn influx_send_ext(line_data: &str) {
     }
 }
 
-fn db_send_ext() {
+fn db_send_ext(interval: i64, iopt: &InfOpt) {
+    let binary = iopt.get("binary").unwrap();
+    let bucket = iopt.get("bucket").unwrap();
+    let meas = iopt.get("measurement").unwrap();
     let mut line_data = String::new();
     loop {
-        let now = Utc::now();
-        let waitsec = 60 - now.second();
-        // wait until next full minute start
+        let waitsec = Utc::now().timestamp() % interval;
+        // wait until next interval start
         thread::sleep(time::Duration::from_secs(waitsec as u64));
 
         trace!("influxdb::db_send_ext() active");
         let ts = Utc::now().timestamp();
-        let ts60 = ts - (ts % 60);
+        let ts_i = ts - (ts % interval);
 
         line_data.clear();
         for sensorid in sensordata::sensor_list3() {
             line_data.push_str(
                 format!(
                     "{},sensor={} value={:.2} {}\n",
-                    INFLUXDB_MEASUREMENT,
+                    meas,
                     &sensorid,
                     sensordata::get_avg(&sensorid, sensordata::get_avg_t_db()).unwrap(),
-                    ts60
+                    ts_i
                 )
                 .as_str(),
             );
         }
         // Only send if we have anything to send...
         if !line_data.is_empty() {
-            influx_send_ext(line_data.trim_end());
+            influx_send_ext(binary, bucket, line_data.trim_end());
         }
     }
 }
@@ -91,33 +104,38 @@ fn db_send_ext() {
 // thread '<unnamed>' panicked at 'there is no reactor running, must be called from the context of a Tokio 1.x runtime',
 // /home/sjm/.cargo/registry/src/github.com-1ecc6299db9ec823/tokio-1.6.0/src/runtime/blocking/pool.rs:85:33
 #[allow(dead_code)]
-fn db_send_native() {
+fn db_send_native(interval: i64, iopt: &InfOpt) {
+    let url = iopt.get("url").unwrap();
+    let token = iopt.get("token").unwrap();
+    let org = iopt.get("org").unwrap();
+    let bucket = iopt.get("bucket").unwrap();
+    let meas = iopt.get("measurement").unwrap();
+
     let mut pts = Vec::new();
     loop {
-        let now = Utc::now();
-        let waitsec = 60 - now.second();
-        // wait until next full minute start
+        let waitsec = Utc::now().timestamp() % interval;
+        // wait until next interval start
         thread::sleep(time::Duration::from_secs(waitsec as u64));
 
         trace!("influxdb::db_send_native() active");
         let ts = Utc::now().timestamp();
-        let ts60 = ts - (ts % 60);
+        let ts_i = ts - (ts % interval);
 
         pts.clear();
         for sensorid in sensordata::sensor_list3() {
-            let p = Point::new(INFLUXDB_MEASUREMENT)
+            let p = Point::new(meas)
                 .tag("sensor", sensorid.as_str())
                 .field(
                     "value",
                     sensordata::get_avg(&sensorid, sensordata::get_avg_t_db()).unwrap(),
                 )
-                .timestamp(ts60);
+                .timestamp(ts_i);
             pts.push(p);
         }
         if !pts.is_empty() {
-            let c = Client::new(INFLUXDB_URL, INFLUXDB_TOKEN)
-                .with_org(INFLUXDB_ORG)
-                .with_bucket(INFLUXDB_BUCKET)
+            let c = Client::new(url, token)
+                .with_org(org)
+                .with_bucket(bucket)
                 .with_precision(Precision::S);
             let f = c.insert_points(&pts, TimestampOptions::FromPoint);
             let res = task::block_on(f);
@@ -129,16 +147,5 @@ fn db_send_native() {
             }
         }
     }
-}
-
-pub fn init() {
-    info!("influxdb::init()");
-    let _thr_db_send = thread::spawn(|| {
-        // Use either of these:
-        match false {
-            true => db_send_native(),
-            false => db_send_ext(),
-        }
-    });
 }
 // EOF
