@@ -37,7 +37,7 @@ fn resp_notfound(payload: Option<&str>) -> (String, String) {
 }
 
 pub fn init() {
-    info!("urlmap::init()");
+    trace!("urlmap::init()");
     set_default(resp_notfound);
     {
         let mut m = URLMAP.lock().unwrap();

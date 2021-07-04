@@ -15,7 +15,7 @@ use crate::utils::sensordata;
 type InfOpt = HashMap<&'static str, String>;
 
 pub fn init(interval: i64, opt: &options::CoapOpt) {
-    info!("influxdb::init()");
+    trace!("influxdb::init()");
     let mut iopt: InfOpt = HashMap::new();
     iopt.insert("binary", opt.influxdb_binary.clone());
     iopt.insert("token", opt.influxdb_token.clone());

@@ -131,9 +131,9 @@ async fn handle_coap_req(request: CoapRequest<SocketAddr>) -> Option<CoapRespons
 }
 
 pub fn init() {
-    info!("coapserver::init()");
+    trace!("coapserver::init()");
     urlmap::init();
-    info!("initializing url handlers");
+    info!("Initializing url handlers");
     urlmap::add("store_temp", resp_store_temp);
     urlmap::add("list_sensors", resp_list_sensors);
     urlmap::add("avg_out", resp_avg_out);

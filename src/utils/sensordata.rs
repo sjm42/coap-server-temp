@@ -19,7 +19,7 @@ static AVGS_T: SyncLazy<Mutex<Vec<u64>>> = SyncLazy::new(|| Mutex::new(Vec::new(
 // avgs_t[0] is used for returning the outside temp average
 // avgs_t[1] is used for the average temp to be sent to db
 pub fn init(out_sensor: &str, avgs_t: &[u64]) {
-    info!("sensordata::init()");
+    trace!("sensordata::init()");
     if avgs_t.len() != 2 {
         panic!("Must have exactly two avgs");
     }
