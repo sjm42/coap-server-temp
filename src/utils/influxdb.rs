@@ -43,9 +43,9 @@ fn influx_send_ext(binary: &str, bucket: &str, line_data: &str) {
 
     // Luckily, this is only done once per minute, so it is not a performance issue.
 
-    info!("IDB line data:\n{}", line_data);
     let iargs = ["write", "--precision", "s", "--bucket", bucket];
     info!("Running {} {}", binary, iargs.join(" "));
+    info!("data:\n{}", line_data);
     let mut p = Command::new(binary)
         .args(&iargs)
         .stdin(Stdio::piped())
@@ -72,7 +72,7 @@ fn db_send_ext(interval: i64, iopt: &InfOpt) {
     let meas = iopt.get("measurement").unwrap();
     let mut line_data = String::new();
     loop {
-        let waitsec = Utc::now().timestamp() % interval;
+        let waitsec = interval - (Utc::now().timestamp() % interval);
         // wait until next interval start
         thread::sleep(time::Duration::from_secs(waitsec as u64));
 
@@ -113,7 +113,7 @@ fn db_send_native(interval: i64, iopt: &InfOpt) {
 
     let mut pts = Vec::new();
     loop {
-        let waitsec = Utc::now().timestamp() % interval;
+        let waitsec = interval - (Utc::now().timestamp() % interval);
         // wait until next interval start
         thread::sleep(time::Duration::from_secs(waitsec as u64));
 
