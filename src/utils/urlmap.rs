@@ -56,7 +56,7 @@ pub fn set_default(handler: UrlHandler) {
 }
 
 pub fn add(urlpath: &'static str, handler: UrlHandler) {
-    info!("urlmap::add({})", urlpath);
+    trace!("urlmap::add({})", urlpath);
     let mut m = URLMAP.lock().unwrap();
     m.map.insert(urlpath, handler);
 }
