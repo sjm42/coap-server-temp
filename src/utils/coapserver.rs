@@ -151,7 +151,7 @@ pub fn serve_coap(listen: &str) {
     let mut rt = Runtime::new().unwrap();
     rt.block_on(async move {
         let mut server = coap::Server::new(listen).unwrap();
-        info!("CoAP server listening on {}", listen);
+        info!("Listening on {}", listen);
         info!("Server running...");
         server.run(handle_coap_req).await.unwrap();
     });
