@@ -15,6 +15,23 @@ use crate::utils::urlmap;
 // we just have a simple request counter here
 static CNT: SyncLazy<Mutex<u64>> = SyncLazy::new(|| Mutex::new(0u64));
 
+pub fn init() {
+    trace!("coapserver::init()");
+    urlmap::init();
+    info!("Creating url handlers");
+    urlmap::add("store_temp", resp_store_temp);
+    urlmap::add("list_sensors", resp_list_sensors);
+    urlmap::add("avg_out", resp_avg_out);
+    urlmap::add("set_outsensor", resp_set_outsensor);
+    urlmap::add("dump", resp_dump);
+    info!("Have {} URL responders.", urlmap::len());
+    {
+        // reset the request counter
+        let mut i = CNT.lock().unwrap();
+        *i = 0;
+    }
+}
+
 fn resp_store_temp(payload: Option<&str>) -> (String, String) {
     match payload {
         None => ("4.00".to_string(), "NO DATA".to_string()),
@@ -127,23 +144,6 @@ async fn handle_coap_req(request: CoapRequest<SocketAddr>) -> Option<CoapRespons
             Some(message)
         }
         _ => None,
-    }
-}
-
-pub fn init() {
-    trace!("coapserver::init()");
-    urlmap::init();
-    info!("Creating url handlers");
-    urlmap::add("store_temp", resp_store_temp);
-    urlmap::add("list_sensors", resp_list_sensors);
-    urlmap::add("avg_out", resp_avg_out);
-    urlmap::add("set_outsensor", resp_set_outsensor);
-    urlmap::add("dump", resp_dump);
-    info!("Have {} URL responders.", urlmap::len());
-    {
-        // reset the request counter
-        let mut i = CNT.lock().unwrap();
-        *i = 0;
     }
 }
 
