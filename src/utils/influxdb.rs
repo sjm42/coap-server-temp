@@ -17,33 +17,83 @@ type InfOpt = HashMap<&'static str, String>;
 
 pub fn init(interval: i64, opt: &options::CoapServerOpts) {
     trace!("influxdb::init()");
-    let bin = opt.influx_binary.clone();
-    match bin.starts_with('/') {
-        true => info!("Using external Influx client binary {}", bin),
-        _ => info!("Using internal InfluxDB client"),
-    };
-
     let mut iopt: InfOpt = HashMap::new();
-    iopt.insert("binary", bin);
+    iopt.insert("binary", opt.influx_binary.clone());
+    iopt.insert("url", opt.influxdb_url.clone());
     iopt.insert("token", opt.influxdb_token.clone());
     iopt.insert("org", opt.influxdb_org.clone());
     iopt.insert("bucket", opt.influxdb_bucket.clone());
     iopt.insert("measurement", opt.influxdb_measurement.clone());
-    iopt.insert("url", opt.influxdb_url.clone());
 
     let _thr_db_send = thread::spawn(move || {
-        match iopt.get("binary").unwrap().starts_with('/') {
-            true => db_send_ext(interval, &iopt),
-            _ => db_send_native(interval, &iopt),
+        let bin = iopt.get("binary").unwrap();
+        match bin.starts_with('/') {
+            true => {
+                info!("Using external Influx binary {}", bin);
+                db_send_external(interval, &iopt)
+            },
+            _ => {
+                info!("Using the internal InfluxDB client");
+                db_send_internal(interval, &iopt)
+            },
         }
     });
 }
 
-fn influx_send_ext(iopt: &InfOpt, line_data: &str) {
-    // Run the external influx command to write data.
-    // Here we assume that the user running this has the necessary InfluxDB client configs
-    // available in home directory, including URL, Organization and Token.
+// Use the Rust native influxdb client library
+fn db_send_internal(interval: i64, iopt: &InfOpt) {
+    let meas = iopt.get("measurement").unwrap();
+    let url = iopt.get("url").unwrap();
+    let token = iopt.get("token").unwrap();
+    let org = iopt.get("org").unwrap();
+    let bucket = iopt.get("bucket").unwrap();
+    let rt = Runtime::new().unwrap();
 
+    loop {
+        let waitsec = interval - (Utc::now().timestamp() % interval);
+        // wait until next interval start
+        thread::sleep(time::Duration::from_secs(waitsec as u64));
+
+        trace!("influxdb::db_send_internal() active");
+        let ts = Utc::now().timestamp();
+        let ts_i = ts - (ts % interval);
+
+        let mut pts = Vec::new();
+        for sensorid in sensordata::sensor_list3() {
+            pts.push(
+                influxdb_client::Point::new(meas)
+                    .tag("sensor", sensorid.as_str())
+                    .field(
+                        "value",
+                        sensordata::get_avg(&sensorid, sensordata::get_avg_t_db()).unwrap(),
+                    )
+                    .timestamp(ts_i)
+            );
+        }
+        if !pts.is_empty() {
+            let c = influxdb_client::Client::new(url, token)
+                .with_org(org)
+                .with_bucket(bucket)
+                .with_precision(influxdb_client::Precision::S);
+
+            rt.spawn(async move {
+                info!("influxdb_client: {:?}", &pts);
+                let res = c
+                    .insert_points(&pts, influxdb_client::TimestampOptions::FromPoint)
+                    .await;
+                match res {
+                    Ok(_) => {}
+                    Err(e) => {
+                        error!("InfluxDB client error: {:?}", e);
+                    }
+                }
+            });
+        }
+    }
+}
+
+// Run the external influx command to write data.
+fn influx_run_cmd(iopt: &InfOpt, line_data: &str) {
     let binary = iopt.get("binary").unwrap();
     let host = iopt.get("url").unwrap();
     let token = iopt.get("token").unwrap();
@@ -80,7 +130,7 @@ fn influx_send_ext(iopt: &InfOpt, line_data: &str) {
     }
 }
 
-fn db_send_ext(interval: i64, iopt: &InfOpt) {
+fn db_send_external(interval: i64, iopt: &InfOpt) {
     let meas = iopt.get("measurement").unwrap();
     let mut line_data = String::new();
     loop {
@@ -107,58 +157,7 @@ fn db_send_ext(interval: i64, iopt: &InfOpt) {
         }
         // Only send if we have anything to send...
         if !line_data.is_empty() {
-            influx_send_ext(iopt, line_data.trim_end());
-        }
-    }
-}
-
-fn db_send_native(interval: i64, iopt: &InfOpt) {
-    let meas = iopt.get("measurement").unwrap();
-    let url = iopt.get("url").unwrap();
-    let token = iopt.get("token").unwrap();
-    let org = iopt.get("org").unwrap();
-    let bucket = iopt.get("bucket").unwrap();
-    let rt = Runtime::new().unwrap();
-
-    loop {
-        let waitsec = interval - (Utc::now().timestamp() % interval);
-        // wait until next interval start
-        thread::sleep(time::Duration::from_secs(waitsec as u64));
-
-        trace!("influxdb::db_send_native() active");
-        let ts = Utc::now().timestamp();
-        let ts_i = ts - (ts % interval);
-
-        let mut pts = Vec::new();
-        for sensorid in sensordata::sensor_list3() {
-            pts.push(
-                influxdb_client::Point::new(meas)
-                    .tag("sensor", sensorid.as_str())
-                    .field(
-                    "value",
-                    sensordata::get_avg(&sensorid, sensordata::get_avg_t_db()).unwrap(),
-                    )
-                    .timestamp(ts_i)
-            );
-        }
-        if !pts.is_empty() {
-            let c = influxdb_client::Client::new(url, token)
-                .with_org(org)
-                .with_bucket(bucket)
-                .with_precision(influxdb_client::Precision::S);
-
-            rt.spawn(async move {
-                info!("influxdb_client: {:?}", &pts);
-                let res = c
-                    .insert_points(&pts, influxdb_client::TimestampOptions::FromPoint)
-                    .await;
-                match res {
-                    Ok(_) => {}
-                    Err(e) => {
-                        error!("InfluxDB client error: {:?}", e);
-                    }
-                }
-            });
+            influx_run_cmd(iopt, line_data.trim_end());
         }
     }
 }
