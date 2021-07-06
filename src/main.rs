@@ -13,7 +13,7 @@ use utils::*;
 
 build_time!("%A %Y-%m-%d %H:%M:%S UTC");
 fn main() {
-    let opt = options::CoapOpt::from_args();
+    let opt = options::CoapServerOpts::from_args();
 
     let loglevel = match opt.trace {
         true => LevelFilter::Trace,

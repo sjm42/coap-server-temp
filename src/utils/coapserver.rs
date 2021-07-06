@@ -148,7 +148,7 @@ async fn handle_coap_req(request: CoapRequest<SocketAddr>) -> Option<CoapRespons
 }
 
 pub fn serve_coap(listen: &str) {
-    let mut rt = Runtime::new().unwrap();
+    let rt = Runtime::new().unwrap();
     rt.block_on(async move {
         let mut server = coap::Server::new(listen).unwrap();
         info!("Listening on {}", listen);

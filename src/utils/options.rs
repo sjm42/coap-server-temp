@@ -2,7 +2,8 @@
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
-pub struct CoapOpt {
+/// Note: internal InfluxDB client is used unless --influx-binary option is set.
+pub struct CoapServerOpts {
     #[structopt(short, long)]
     pub trace: bool,
     #[structopt(short, long, default_value = "127.0.0.1:5683")]
@@ -13,10 +14,10 @@ pub struct CoapOpt {
     pub avg_t_db: u64,
     #[structopt(long, default_value = "900")]
     pub avg_t_out: u64,
+    #[structopt(long, default_value="<none>")]
+    pub influx_binary: String,
     #[structopt(long, default_value = "60")]
     pub influxdb_interval: i64,
-    #[structopt(long, default_value = "/usr/bin/influx")]
-    pub influxdb_binary: String,
     #[structopt(long, default_value = "secret_token")]
     pub influxdb_token: String,
     #[structopt(long, default_value = "myorg")]
@@ -25,7 +26,7 @@ pub struct CoapOpt {
     pub influxdb_bucket: String,
     #[structopt(long, default_value = "temperature")]
     pub influxdb_measurement: String,
-    #[structopt(long, default_value = "http://localhost:8086")]
+    #[structopt(long, default_value = "http://127.0.0.1:8086")]
     pub influxdb_url: String,
 }
 // EOF
