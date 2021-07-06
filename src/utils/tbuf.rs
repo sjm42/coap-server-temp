@@ -158,10 +158,11 @@ impl Tbuf {
             );
         }
         for buf_i in 0..self.buf.len() {
+            let data = self.buf[buf_i].data;
             for avg_i in 0..n_avg {
                 if self.buf[buf_i].ts > too_old[avg_i] {
                     sizes[avg_i] += 1;
-                    sums[avg_i] += self.buf[buf_i].data;
+                    sums[avg_i] += data;
                 }
             }
         }
