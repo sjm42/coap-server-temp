@@ -4,7 +4,7 @@ use log::*;
 use std::lazy::*;
 use std::sync::*;
 
-use coap_lite::{CoapRequest, CoapResponse, RequestType as Method};
+use coap_lite::{CoapRequest, CoapResponse, ResponseType, RequestType as Method};
 use std::net::SocketAddr;
 use tokio::runtime::Runtime;
 
@@ -32,50 +32,50 @@ pub fn init() {
     }
 }
 
-fn resp_store_temp(payload: Option<&str>) -> (String, String) {
+fn resp_store_temp(payload: Option<&str>) -> (ResponseType, String) {
     match payload {
-        None => ("4.00".to_string(), "NO DATA".to_string()),
+        None => (ResponseType::BadRequest, "NO DATA".to_string()),
         Some(data) => {
             let indata: Vec<&str> = data.split_whitespace().collect();
             if indata.len() != 2 {
-                return ("4.00".to_string(), "ILLEGAL DATA".to_string());
+                return (ResponseType::BadRequest, "INVALID DATA".to_string());
             }
             match indata[1].parse::<f32>() {
-                Err(_) => ("4.00".to_string(), "ILLEGAL DATA".to_string()),
+                Err(_) => (ResponseType::BadRequest, "INVALID DATA".to_string()),
                 Ok(temp) => {
                     sensordata::add(indata[0], temp);
-                    ("2.05".to_string(), "OK".to_string())
+                    (ResponseType::Content, "OK".to_string())
                 }
             }
         }
     }
 }
 
-fn resp_list_sensors(_payload: Option<&str>) -> (String, String) {
-    ("2.05".to_string(), sensordata::sensor_list().join(" "))
+fn resp_list_sensors(_payload: Option<&str>) -> (ResponseType, String) {
+    (ResponseType::Content, sensordata::sensor_list().join(" "))
 }
 
-fn resp_avg_out(_payload: Option<&str>) -> (String, String) {
+fn resp_avg_out(_payload: Option<&str>) -> (ResponseType, String) {
     let t_out = sensordata::get_avg_out();
     match t_out {
-        None => ("5.03".to_string(), "NO DATA".to_string()),
-        Some(avg) => ("2.05".to_string(), format!("{:.2}", avg)),
+        None => (ResponseType::ServiceUnavailable, "NO DATA".to_string()),
+        Some(avg) => (ResponseType::Content, format!("{:.2}", avg)),
     }
 }
 
-fn resp_set_outsensor(payload: Option<&str>) -> (String, String) {
+fn resp_set_outsensor(payload: Option<&str>) -> (ResponseType, String) {
     match payload {
-        None => ("4.00".to_string(), "NO DATA".to_string()),
+        None => (ResponseType::BadRequest, "NO DATA".to_string()),
         Some(data) => {
             sensordata::set_outsensor(data);
-            ("2.05".to_string(), "OK".to_string())
+            (ResponseType::Content, "OK".to_string())
         }
     }
 }
 
-fn resp_dump(_payload: Option<&str>) -> (String, String) {
+fn resp_dump(_payload: Option<&str>) -> (ResponseType, String) {
     sensordata::dump();
-    ("2.05".to_string(), "OK".to_string())
+    (ResponseType::Content, "OK".to_string())
 }
 
 async fn handle_coap_req(request: CoapRequest<SocketAddr>) -> Option<CoapResponse> {
@@ -88,7 +88,7 @@ async fn handle_coap_req(request: CoapRequest<SocketAddr>) -> Option<CoapRespons
     }
     let url_path = request.get_path();
     let ret;
-    let resp_code: &str;
+    let resp_code: ResponseType;
     let resp: &str;
     let ip_s;
     match request.source {
@@ -110,7 +110,7 @@ async fn handle_coap_req(request: CoapRequest<SocketAddr>) -> Option<CoapRespons
     match *request.get_method() {
         Method::Get => {
             ret = urlmap::get(url_path.as_str())(None);
-            resp_code = ret.0.as_str();
+            resp_code = ret.0;
             resp = ret.1.as_str();
         }
         Method::Post => {
@@ -118,29 +118,29 @@ async fn handle_coap_req(request: CoapRequest<SocketAddr>) -> Option<CoapRespons
             match payload_o {
                 Err(e) => {
                     error!("--> UTF-8 decode error: {:?}", e);
-                    resp_code = "4.00";
-                    resp = "BAD REQUEST";
+                    resp_code = ResponseType::BadRequest;
+                    resp = "INVALID UTF8";
                 }
                 Ok(payload) => {
                     info!("<-- payload: {}", payload);
                     ret = urlmap::get(url_path.as_str())(Some(&payload));
-                    resp_code = ret.0.as_str();
+                    resp_code = ret.0;
                     resp = ret.1.as_str();
                 }
             }
         }
         _ => {
             error!("--> Unsupported CoAP method {:?}", request.get_method());
-            resp_code = "4.00";
-            resp = "BAD REQUEST";
+            resp_code = ResponseType::BadRequest;
+            resp = "INVALID METHOD";
         }
     }
-    info!("--> {} {}", resp_code, resp);
+    info!("--> {:?} {}", resp_code, resp);
     match request.response {
         Some(mut message) => {
-            message.message.header.set_code(resp_code);
-            let resp_b = resp.as_bytes();
-            message.message.payload = resp_b.to_vec();
+            message.set_status(resp_code);
+            message.message.payload = resp.as_bytes().to_vec();
+            trace!("--> {:?}", message);
             Some(message)
         }
         _ => None,

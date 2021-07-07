@@ -4,8 +4,9 @@ use log::*;
 use std::collections::HashMap;
 use std::lazy::*;
 use std::sync::*;
+use coap_lite::ResponseType;
 
-pub type UrlHandler = fn(Option<&str>) -> (String, String);
+pub type UrlHandler = fn(Option<&str>) -> (ResponseType, String);
 struct UrlMap {
     map: HashMap<&'static str, UrlHandler>,
     default: UrlHandler,
@@ -28,12 +29,12 @@ impl UrlMap {
 
 static URLMAP: SyncLazy<Mutex<UrlMap>> = SyncLazy::new(|| Mutex::new(UrlMap::new()));
 
-fn resp_notfound(payload: Option<&str>) -> (String, String) {
+fn resp_notfound(payload: Option<&str>) -> (ResponseType, String) {
     trace!(
         "UrlHandler::resp_notfound: payload={}",
         payload.unwrap_or(&"<none>".to_string())
     );
-    ("4.04".to_string(), "NOT FOUND".to_string())
+    (ResponseType::NotFound, "NOT FOUND".to_string())
 }
 
 pub fn init() {

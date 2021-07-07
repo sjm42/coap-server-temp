@@ -25,7 +25,9 @@ pub fn init(interval: i64, opt: &options::CoapServerOpts) {
     iopt.insert("bucket", opt.influxdb_bucket.clone());
     iopt.insert("measurement", opt.influxdb_measurement.clone());
 
+    // Start a new background thread for database inserts
     let _thr_db_send = thread::spawn(move || {
+        // Note: ownership of iopt is moved into this closure
         let bin = iopt.get("binary").unwrap();
         match bin.starts_with('/') {
             true => {
@@ -77,6 +79,8 @@ fn db_send_internal(interval: i64, iopt: &InfOpt) {
                 .with_precision(influxdb_client::Precision::S);
 
             rt.spawn(async move {
+                // ownership of pts and c are moved into here
+                // hence, new ones must be created each time before calling this
                 info!("influxdb_client: {:?}", &pts);
                 let res = c
                     .insert_points(&pts, influxdb_client::TimestampOptions::FromPoint)
