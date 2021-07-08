@@ -56,7 +56,7 @@ fn db_send_internal(
         let ts = Utc::now().timestamp();
         let ts_i = ts - (ts % interval);
 
-        let mut pts = Vec::new();
+        let mut pts = Vec::with_capacity(8);
         for sensorid in sensordata::sensor_list3() {
             pts.push(
                 influxdb_client::Point::new(measurement)
@@ -103,7 +103,7 @@ fn db_send_external(
     bucket: &str,
     measurement: &str,
 ) {
-    let mut data_points = Vec::new();
+    let mut data_points = Vec::with_capacity(8);
     loop {
         let waitsec = interval - (Utc::now().timestamp() % interval);
         // wait until next interval start

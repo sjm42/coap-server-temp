@@ -12,7 +12,8 @@ use crate::utils::tbuf;
 
 // our global persistent state, with locking
 type SensorData = HashMap<String, tbuf::Tbuf>;
-static SDATA: SyncLazy<Mutex<SensorData>> = SyncLazy::new(|| Mutex::new(SensorData::new()));
+static SDATA: SyncLazy<Mutex<SensorData>> =
+    SyncLazy::new(|| Mutex::new(SensorData::with_capacity(8)));
 static OUT_SENSOR: SyncLazy<Mutex<String>> = SyncLazy::new(|| Mutex::new(String::new()));
 static AVGS_T: SyncLazy<Mutex<Vec<u64>>> = SyncLazy::new(|| Mutex::new(Vec::new()));
 

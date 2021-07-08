@@ -83,7 +83,7 @@ impl Tbuf {
             buf_expire: *avgs_t.iter().max().unwrap(),
             avgs_t: avgs_t.to_vec(),
             avgs: Vec::with_capacity(avgs_t.len()),
-            buf: Vec::with_capacity(10),
+            buf: Vec::with_capacity(16),
         };
         // Vector avgs is guaranteed to be of same length as avgs_t
         // so we are filling it up here now.

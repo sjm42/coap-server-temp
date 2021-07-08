@@ -10,10 +10,14 @@ pub struct UrlMap {
     default: UrlHandler,
 }
 
+#[allow(dead_code)]
 impl UrlMap {
     pub fn new() -> UrlMap {
+        UrlMap::new_cap(8)
+    }
+    pub fn new_cap(cap: usize) -> UrlMap {
         UrlMap {
-            map: HashMap::with_capacity(10),
+            map: HashMap::with_capacity(cap),
             default: resp_notfound,
         }
     }
