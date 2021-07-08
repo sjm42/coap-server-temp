@@ -24,16 +24,17 @@ pub fn init(opt: &options::GlobalServerOptions) {
     let measurement = opt.influxdb_measurement.clone();
 
     // Start a new background thread for database inserts
-    let _thr_db_send = thread::spawn(move || match binary.starts_with('/') {
-        true => {
-            info!("Using external Influx binary {}", binary);
+    if binary.starts_with('/') {
+        info!("Using external Influx binary {}", binary);
+        let _thr_db_send = thread::spawn(move || {
             db_send_external(interval, &binary, &url, &token, &org, &bucket, &measurement)
-        }
-        _ => {
-            info!("Using the internal InfluxDB client");
+        });
+    } else {
+        info!("Using the internal InfluxDB client");
+        let _thr_db_send = thread::spawn(move || {
             db_send_internal(interval, &url, &token, &org, &bucket, &measurement)
-        }
-    });
+        });
+    }
 }
 
 // Use the Rust native influxdb client library
