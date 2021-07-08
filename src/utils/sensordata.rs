@@ -87,14 +87,14 @@ pub fn get_avg_out() -> Option<f64> {
     get_avg(&get_outsensor(), get_avg_t_out())
 }
 
-pub fn sensor_list() -> Vec<String> {
+pub fn sensors_list() -> Vec<String> {
     // Return Vec of Strings listing all the sensor ids we have, as cloned/owned strings
     let list = SDATA.lock().unwrap().keys().cloned().collect::<Vec<_>>();
     trace!("sensordata::sensor_list() --> {:?}", list);
     list
 }
 
-pub fn sensor_list3() -> Vec<String> {
+pub fn sensors_list3() -> Vec<String> {
     // Return Vec of Strings listing all the sensor ids that have at least
     // 3 datapoints in them, as cloned/owned strings
     let sd = SDATA.lock().unwrap();

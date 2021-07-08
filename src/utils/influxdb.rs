@@ -57,7 +57,7 @@ fn db_send_internal(
         let ts_i = ts - (ts % interval);
 
         let mut pts = Vec::with_capacity(8);
-        for sensorid in sensordata::sensor_list3() {
+        for sensorid in sensordata::sensors_list3() {
             pts.push(
                 influxdb_client::Point::new(measurement)
                     .tag("sensor", sensorid.as_str())
@@ -114,7 +114,7 @@ fn db_send_external(
         let ts_i = ts - (ts % interval);
 
         data_points.clear();
-        for sensorid in sensordata::sensor_list3() {
+        for sensorid in sensordata::sensors_list3() {
             data_points.push(format!(
                 "{},sensor={} value={:.2} {}\n",
                 measurement,

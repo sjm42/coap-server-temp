@@ -78,12 +78,15 @@ pub struct Tbuf {
 #[allow(dead_code)]
 impl Tbuf {
     pub fn new(avgs_t: &[u64]) -> Tbuf {
+        Tbuf::new_cap(16, avgs_t)
+    }
+    pub fn new_cap(cap: usize, avgs_t: &[u64]) -> Tbuf {
         trace!("Tbuf::new_avgs()");
         let mut tbuf = Tbuf {
             buf_expire: *avgs_t.iter().max().unwrap(),
             avgs_t: avgs_t.to_vec(),
             avgs: Vec::with_capacity(avgs_t.len()),
-            buf: Vec::with_capacity(16),
+            buf: Vec::with_capacity(cap),
         };
         // Vector avgs is guaranteed to be of same length as avgs_t
         // so we are filling it up here now.
