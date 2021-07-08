@@ -78,12 +78,12 @@ fn db_send_internal(
                 // ownership of pts and c are moved into here
                 // hence, new ones must be created each time before calling this
                 trace!("influxdb data: {:?}", &pts);
-                let res = c
+                match c
                     .insert_points(&pts, influxdb_client::TimestampOptions::FromPoint)
-                    .await;
-                match res {
+                    .await
+                {
                     Ok(_) => {
-                        info!("influxdb_client: inserted {} points", pts.len());
+                        info!("****** influxdb: inserted {} points", pts.len());
                     }
                     Err(e) => {
                         error!("InfluxDB client error: {:?}", e);
@@ -125,7 +125,14 @@ fn db_send_external(
         }
         // Only send if we have anything to send...
         if !data_points.is_empty() {
-            influx_run_cmd(&data_points, binary, url, token, org, bucket);
+            match influx_run_cmd(&data_points, binary, url, token, org, bucket) {
+                Ok(_) => {
+                    info!("****** influxdb: inserted {} points", data_points.len());
+                }
+                Err(e) => {
+                    error!("InfluxDB client error: {:?}", e);
+                }
+            }
         }
     }
 }
@@ -138,7 +145,7 @@ fn influx_run_cmd(
     token: &str,
     org: &str,
     bucket: &str,
-) {
+) -> Result<(), ExitStatus> {
     let line_data = data_points.join("\n");
     let iargs = [
         "write",
@@ -153,8 +160,8 @@ fn influx_run_cmd(
         "--bucket",
         bucket,
     ];
-    info!("Running {} {}", binary, iargs.join(" "));
-    info!("data:\n{}", line_data);
+    trace!("Running {} {}", binary, iargs.join(" "));
+    trace!("data:\n{}", line_data);
     let mut p = Command::new(binary)
         .args(&iargs)
         .stdin(Stdio::piped())
@@ -165,13 +172,16 @@ fn influx_run_cmd(
     let p_in = p.stdin.as_mut().unwrap();
     p_in.write_all(line_data.as_bytes()).unwrap();
     let out = p.wait_with_output().unwrap();
-    if !out.status.success() || !out.stdout.is_empty() || !out.stderr.is_empty() {
+    if out.status.success() && out.stdout.is_empty() && out.stderr.is_empty() {
+        Ok(())
+    } else {
         error!(
             "influx command failed, exit status {}\nstderr:\n{}\nstdout:\n{}\n",
             out.status.code().unwrap(),
             String::from_utf8(out.stderr).unwrap(),
             String::from_utf8(out.stdout).unwrap()
         );
+        Err(out.status)
     }
 }
 // EOF
