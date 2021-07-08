@@ -23,9 +23,11 @@ fn main() {
     )
     .unwrap();
 
-    info!("CoAP server built from branch: {} commit: {}",
+    info!(
+        "CoAP server built from branch: {} commit: {}",
         env!("GIT_BRANCH"),
-        env!("GIT_COMMIT"));
+        env!("GIT_COMMIT")
+    );
     info!("Source timestamp: {}", env!("SOURCE_TIMESTAMP"));
     info!("Compiler version: {}", env!("RUSTC_VERSION"));
     trace!("Options: {:?}", opt);

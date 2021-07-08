@@ -62,8 +62,7 @@ fn resp_list_sensors(_payload: Option<&str>) -> UrlResponse {
 }
 
 fn resp_avg_out(_payload: Option<&str>) -> UrlResponse {
-    let t_out = sensordata::get_avg_out();
-    match t_out {
+    match sensordata::get_avg_out() {
         None => UrlResponse::new(ResponseType::ServiceUnavailable, "NO DATA"),
         Some(avg) => UrlResponse::new(ResponseType::Content, format!("{:.2}", avg)),
     }
@@ -85,12 +84,7 @@ fn resp_dump(_payload: Option<&str>) -> UrlResponse {
 }
 
 fn get_handler(url_path: &str) -> UrlHandler {
-    let handler;
-    {
-        let urlmap = URLMAP.lock().unwrap();
-        handler = urlmap.get(url_path);
-    }
-    handler
+    URLMAP.lock().unwrap().get(url_path)
 }
 
 async fn handle_coap_req(request: CoapRequest<SocketAddr>) -> Option<CoapResponse> {
@@ -126,8 +120,10 @@ async fn handle_coap_req(request: CoapRequest<SocketAddr>) -> Option<CoapRespons
         url_path
     );
 
-    match *request.get_method() {
+    let method = *request.get_method();
+    match method {
         Method::Get => {
+            // Call the URL handler without payload
             ret = get_handler(url_path)(None);
             resp_code = ret.code();
             resp_data = ret.data();
@@ -140,13 +136,14 @@ async fn handle_coap_req(request: CoapRequest<SocketAddr>) -> Option<CoapRespons
             }
             Ok(payload) => {
                 info!("<-- payload: {}", payload);
+                // Call the URL handler with payload
                 ret = get_handler(url_path)(Some(&payload));
                 resp_code = ret.code();
                 resp_data = ret.data();
             }
         },
         _ => {
-            error!("--> Unsupported CoAP method {:?}", request.get_method());
+            error!("--> Unsupported CoAP method {:?}", method);
             resp_code = ResponseType::BadRequest;
             resp_data = "INVALID METHOD";
         }
@@ -156,7 +153,7 @@ async fn handle_coap_req(request: CoapRequest<SocketAddr>) -> Option<CoapRespons
     match request.response {
         Some(mut message) => {
             message.set_status(resp_code);
-            message.message.payload = resp_data.as_bytes().to_vec();
+            message.message.payload = resp_data.into();
             trace!("--> {:?}", message);
             Some(message)
         }
