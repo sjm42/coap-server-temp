@@ -1,7 +1,6 @@
 // utils/influxdb.rs
 
 use log::*;
-use std::collections::HashMap;
 use std::io::Write;
 use std::process::*;
 use std::{thread, time};
@@ -13,44 +12,40 @@ use tokio::runtime::Runtime;
 use crate::utils::options;
 use crate::utils::sensordata;
 
-type InfOpt = HashMap<&'static str, String>;
-
-pub fn init(interval: i64, opt: &options::CoapServerOpts) {
+pub fn init(opt: &options::GlobalServerOptions) {
     trace!("influxdb::init()");
-    let mut iopt: InfOpt = HashMap::new();
-    iopt.insert("binary", opt.influx_binary.clone());
-    iopt.insert("url", opt.influxdb_url.clone());
-    iopt.insert("token", opt.influxdb_token.clone());
-    iopt.insert("org", opt.influxdb_org.clone());
-    iopt.insert("bucket", opt.influxdb_bucket.clone());
-    iopt.insert("measurement", opt.influxdb_measurement.clone());
+
+    let interval = opt.influxdb_interval;
+    let binary = opt.influx_binary.clone();
+    let url = opt.influxdb_url.clone();
+    let token = opt.influxdb_token.clone();
+    let org = opt.influxdb_org.clone();
+    let bucket = opt.influxdb_bucket.clone();
+    let measurement = opt.influxdb_measurement.clone();
 
     // Start a new background thread for database inserts
-    let _thr_db_send = thread::spawn(move || {
-        // Note: ownership of iopt is moved into this closure
-        let bin = iopt.get("binary").unwrap();
-        match bin.starts_with('/') {
-            true => {
-                info!("Using external Influx binary {}", bin);
-                db_send_external(interval, &iopt)
-            },
-            _ => {
-                info!("Using the internal InfluxDB client");
-                db_send_internal(interval, &iopt)
-            },
+    let _thr_db_send = thread::spawn(move || match binary.starts_with('/') {
+        true => {
+            info!("Using external Influx binary {}", binary);
+            db_send_external(interval, &binary, &url, &token, &org, &bucket, &measurement)
+        }
+        _ => {
+            info!("Using the internal InfluxDB client");
+            db_send_internal(interval, &url, &token, &org, &bucket, &measurement)
         }
     });
 }
 
 // Use the Rust native influxdb client library
-fn db_send_internal(interval: i64, iopt: &InfOpt) {
-    let meas = iopt.get("measurement").unwrap();
-    let url = iopt.get("url").unwrap();
-    let token = iopt.get("token").unwrap();
-    let org = iopt.get("org").unwrap();
-    let bucket = iopt.get("bucket").unwrap();
+fn db_send_internal(
+    interval: i64,
+    url: &str,
+    token: &str,
+    org: &str,
+    bucket: &str,
+    measurement: &str,
+) {
     let rt = Runtime::new().unwrap();
-
     loop {
         let waitsec = interval - (Utc::now().timestamp() % interval);
         // wait until next interval start
@@ -63,13 +58,13 @@ fn db_send_internal(interval: i64, iopt: &InfOpt) {
         let mut pts = Vec::new();
         for sensorid in sensordata::sensor_list3() {
             pts.push(
-                influxdb_client::Point::new(meas)
+                influxdb_client::Point::new(measurement)
                     .tag("sensor", sensorid.as_str())
                     .field(
                         "value",
                         sensordata::get_avg(&sensorid, sensordata::get_avg_t_db()).unwrap(),
                     )
-                    .timestamp(ts_i)
+                    .timestamp(ts_i),
             );
         }
         if !pts.is_empty() {
@@ -81,12 +76,14 @@ fn db_send_internal(interval: i64, iopt: &InfOpt) {
             rt.spawn(async move {
                 // ownership of pts and c are moved into here
                 // hence, new ones must be created each time before calling this
-                info!("influxdb_client: {:?}", &pts);
+                trace!("influxdb data: {:?}", &pts);
                 let res = c
                     .insert_points(&pts, influxdb_client::TimestampOptions::FromPoint)
                     .await;
                 match res {
-                    Ok(_) => {}
+                    Ok(_) => {
+                        info!("influxdb_client: inserted {} points", pts.len());
+                    }
                     Err(e) => {
                         error!("InfluxDB client error: {:?}", e);
                     }
@@ -96,21 +93,64 @@ fn db_send_internal(interval: i64, iopt: &InfOpt) {
     }
 }
 
-// Run the external influx command to write data.
-fn influx_run_cmd(iopt: &InfOpt, line_data: &str) {
-    let binary = iopt.get("binary").unwrap();
-    let host = iopt.get("url").unwrap();
-    let token = iopt.get("token").unwrap();
-    let org = iopt.get("org").unwrap();
-    let bucket = iopt.get("bucket").unwrap();
+fn db_send_external(
+    interval: i64,
+    binary: &str,
+    url: &str,
+    token: &str,
+    org: &str,
+    bucket: &str,
+    measurement: &str,
+) {
+    let mut data_points = Vec::new();
+    loop {
+        let waitsec = interval - (Utc::now().timestamp() % interval);
+        // wait until next interval start
+        thread::sleep(time::Duration::from_secs(waitsec as u64));
 
+        trace!("influxdb::db_send_ext() active");
+        let ts = Utc::now().timestamp();
+        let ts_i = ts - (ts % interval);
+
+        data_points.clear();
+        for sensorid in sensordata::sensor_list3() {
+            data_points.push(format!(
+                "{},sensor={} value={:.2} {}\n",
+                measurement,
+                &sensorid,
+                sensordata::get_avg(&sensorid, sensordata::get_avg_t_db()).unwrap(),
+                ts_i
+            ));
+        }
+        // Only send if we have anything to send...
+        if !data_points.is_empty() {
+            influx_run_cmd(&data_points, binary, url, token, org, bucket);
+        }
+    }
+}
+
+// Run the external influx command to write data.
+fn influx_run_cmd(
+    data_points: &[String],
+    binary: &str,
+    url: &str,
+    token: &str,
+    org: &str,
+    bucket: &str,
+) {
+    let line_data = data_points.join("\n");
     let iargs = [
         "write",
-        "--precision", "s",
-        "--host", host,
-        "--token", token,
-        "--org", org,
-        "--bucket", bucket,
+        "--precision",
+        "s",
+        "--host",
+        url,
+        "--token",
+        token,
+        "--org",
+        org,
+        "--bucket",
+        bucket,
     ];
     info!("Running {} {}", binary, iargs.join(" "));
     info!("data:\n{}", line_data);
@@ -131,38 +171,6 @@ fn influx_run_cmd(iopt: &InfOpt, line_data: &str) {
             String::from_utf8(out.stderr).unwrap(),
             String::from_utf8(out.stdout).unwrap()
         );
-    }
-}
-
-fn db_send_external(interval: i64, iopt: &InfOpt) {
-    let meas = iopt.get("measurement").unwrap();
-    let mut line_data = String::new();
-    loop {
-        let waitsec = interval - (Utc::now().timestamp() % interval);
-        // wait until next interval start
-        thread::sleep(time::Duration::from_secs(waitsec as u64));
-
-        trace!("influxdb::db_send_ext() active");
-        let ts = Utc::now().timestamp();
-        let ts_i = ts - (ts % interval);
-
-        line_data.clear();
-        for sensorid in sensordata::sensor_list3() {
-            line_data.push_str(
-                format!(
-                    "{},sensor={} value={:.2} {}\n",
-                    meas,
-                    &sensorid,
-                    sensordata::get_avg(&sensorid, sensordata::get_avg_t_db()).unwrap(),
-                    ts_i
-                )
-                .as_str(),
-            );
-        }
-        // Only send if we have anything to send...
-        if !line_data.is_empty() {
-            influx_run_cmd(iopt, line_data.trim_end());
-        }
     }
 }
 // EOF

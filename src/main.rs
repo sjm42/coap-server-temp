@@ -1,7 +1,5 @@
 // main.rs
 #![feature(once_cell)]
-#![feature(async_closure)]
-#![feature(destructuring_assignment)]
 
 use build_timestamp::build_time;
 use log::*;
@@ -13,7 +11,7 @@ use utils::*;
 
 build_time!("%A %Y-%m-%d %H:%M:%S UTC");
 fn main() {
-    let opt = options::CoapServerOpts::from_args();
+    let opt = options::GlobalServerOptions::from_args();
 
     let loglevel = match opt.trace {
         true => LevelFilter::Trace,
@@ -30,9 +28,9 @@ fn main() {
     info!("CoAP server built {}", BUILD_TIME);
     trace!("Options: {:?}", opt);
     info!("Initializing...");
-    influxdb::init(opt.influxdb_interval, &opt);
-    sensordata::init(&opt.out_sensor, &[opt.avg_t_out, opt.avg_t_db]);
-    coapserver::init();
-    coapserver::serve_coap(&opt.listen);
+    influxdb::init(&opt);
+    sensordata::init(&opt);
+    coapserver::init(&opt);
+    coapserver::serve_coap(&opt);
 }
 // EOF

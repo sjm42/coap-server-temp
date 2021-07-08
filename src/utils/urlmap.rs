@@ -1,33 +1,42 @@
 // utils/urlmap.rs
 
+use coap_lite::ResponseType;
 use log::*;
 use std::collections::HashMap;
-use std::lazy::*;
-use std::sync::*;
-use coap_lite::ResponseType;
 
 pub type UrlHandler = fn(Option<&str>) -> (ResponseType, String);
-struct UrlMap {
-    map: HashMap<&'static str, UrlHandler>,
+pub struct UrlMap {
+    map: HashMap<String, UrlHandler>,
     default: UrlHandler,
 }
 
 impl UrlMap {
-    fn new() -> UrlMap {
+    pub fn new() -> UrlMap {
         UrlMap {
-            map: HashMap::new(),
+            map: HashMap::with_capacity(10),
             default: resp_notfound,
         }
     }
-    fn get(&self, urlpath: &str) -> UrlHandler {
+    pub fn clear(&mut self) {
+        self.map.clear();
+        self.set_default(resp_notfound);
+    }
+    pub fn set_default(&mut self, handler: UrlHandler) {
+        self.default = handler;
+    }
+    pub fn add(&mut self, urlpath: &str, handler: UrlHandler) {
+        self.map.insert(urlpath.to_string(), handler);
+    }
+    pub fn get(&self, urlpath: &str) -> UrlHandler {
         match self.map.get(urlpath) {
             None => self.default,
             Some(handler) => *handler,
         }
     }
+    pub fn len(&self) -> usize {
+        self.map.len()
+    }
 }
-
-static URLMAP: SyncLazy<Mutex<UrlMap>> = SyncLazy::new(|| Mutex::new(UrlMap::new()));
 
 fn resp_notfound(payload: Option<&str>) -> (ResponseType, String) {
     trace!(
@@ -35,35 +44,5 @@ fn resp_notfound(payload: Option<&str>) -> (ResponseType, String) {
         payload.unwrap_or(&"<none>".to_string())
     );
     (ResponseType::NotFound, "NOT FOUND".to_string())
-}
-
-pub fn init() {
-    trace!("urlmap::init()");
-    set_default(resp_notfound);
-    {
-        let mut m = URLMAP.lock().unwrap();
-        m.map.clear();
-    }
-}
-
-pub fn len() -> usize {
-    let m = URLMAP.lock().unwrap();
-    m.map.len()
-}
-
-pub fn set_default(handler: UrlHandler) {
-    let mut m = URLMAP.lock().unwrap();
-    m.default = handler;
-}
-
-pub fn add(urlpath: &'static str, handler: UrlHandler) {
-    trace!("urlmap::add({})", urlpath);
-    let mut m = URLMAP.lock().unwrap();
-    m.map.insert(urlpath, handler);
-}
-
-pub fn get(urlpath: &str) -> UrlHandler {
-    let m = URLMAP.lock().unwrap();
-    m.get(urlpath)
 }
 // EOF

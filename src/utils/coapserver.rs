@@ -4,27 +4,32 @@ use log::*;
 use std::lazy::*;
 use std::sync::*;
 
-use coap_lite::{CoapRequest, CoapResponse, ResponseType, RequestType as Method};
+use coap_lite::{CoapRequest, CoapResponse, RequestType as Method, ResponseType};
 use std::net::SocketAddr;
 use tokio::runtime::Runtime;
 
+use crate::utils::options;
 use crate::utils::sensordata;
-use crate::utils::urlmap;
+// use crate::utils::urlmap;
+use crate::utils::urlmap::*;
 
 // our global persistent state, with locking
-// we just have a simple request counter here
+static URLMAP: SyncLazy<Mutex<UrlMap>> = SyncLazy::new(|| Mutex::new(UrlMap::new()));
 static CNT: SyncLazy<Mutex<u64>> = SyncLazy::new(|| Mutex::new(0u64));
 
-pub fn init() {
+pub fn init(_opt: &options::GlobalServerOptions) {
     trace!("coapserver::init()");
-    urlmap::init();
-    info!("Creating url handlers");
-    urlmap::add("store_temp", resp_store_temp);
-    urlmap::add("list_sensors", resp_list_sensors);
-    urlmap::add("avg_out", resp_avg_out);
-    urlmap::add("set_outsensor", resp_set_outsensor);
-    urlmap::add("dump", resp_dump);
-    info!("Have {} URL responders.", urlmap::len());
+    {
+        info!("Creating url handlers");
+        let mut urlmap = URLMAP.lock().unwrap();
+        urlmap.clear();
+        urlmap.add("store_temp", resp_store_temp);
+        urlmap.add("list_sensors", resp_list_sensors);
+        urlmap.add("avg_out", resp_avg_out);
+        urlmap.add("set_outsensor", resp_set_outsensor);
+        urlmap.add("dump", resp_dump);
+        info!("Have {} URL responders.", urlmap.len());
+    }
     {
         // reset the request counter
         let mut i = CNT.lock().unwrap();
@@ -78,6 +83,15 @@ fn resp_dump(_payload: Option<&str>) -> (ResponseType, String) {
     (ResponseType::Content, "OK".to_string())
 }
 
+fn get_handler(url_path: &str) -> UrlHandler {
+    let handler;
+    {
+        let urlmap = URLMAP.lock().unwrap();
+        handler = urlmap.get(url_path);
+    }
+    handler
+}
+
 async fn handle_coap_req(request: CoapRequest<SocketAddr>) -> Option<CoapResponse> {
     let i_save;
     {
@@ -86,7 +100,8 @@ async fn handle_coap_req(request: CoapRequest<SocketAddr>) -> Option<CoapRespons
         *i += 1;
         i_save = *i;
     }
-    let url_path = request.get_path();
+    let req_path = request.get_path();
+    let url_path = req_path.as_str();
     let ret;
     let resp_code: ResponseType;
     let resp: &str;
@@ -109,7 +124,7 @@ async fn handle_coap_req(request: CoapRequest<SocketAddr>) -> Option<CoapRespons
 
     match *request.get_method() {
         Method::Get => {
-            ret = urlmap::get(url_path.as_str())(None);
+            ret = get_handler(url_path)(None);
             resp_code = ret.0;
             resp = ret.1.as_str();
         }
@@ -123,7 +138,7 @@ async fn handle_coap_req(request: CoapRequest<SocketAddr>) -> Option<CoapRespons
                 }
                 Ok(payload) => {
                     info!("<-- payload: {}", payload);
-                    ret = urlmap::get(url_path.as_str())(Some(&payload));
+                    ret = get_handler(url_path)(Some(&payload));
                     resp_code = ret.0;
                     resp = ret.1.as_str();
                 }
@@ -147,7 +162,8 @@ async fn handle_coap_req(request: CoapRequest<SocketAddr>) -> Option<CoapRespons
     }
 }
 
-pub fn serve_coap(listen: &str) {
+pub fn serve_coap(opt: &options::GlobalServerOptions) {
+    let listen = &opt.listen;
     let rt = Runtime::new().unwrap();
     rt.block_on(async move {
         let mut server = coap::Server::new(listen).unwrap();

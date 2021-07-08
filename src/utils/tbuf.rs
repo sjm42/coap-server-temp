@@ -83,7 +83,7 @@ impl Tbuf {
             buf_expire: *avgs_t.iter().max().unwrap(),
             avgs_t: avgs_t.to_vec(),
             avgs: Vec::with_capacity(avgs_t.len()),
-            buf: Vec::new(),
+            buf: Vec::with_capacity(10),
         };
         // Vector avgs is guaranteed to be of same length as avgs_t
         // so we are filling it up here now.
@@ -117,14 +117,14 @@ impl Tbuf {
         }
         None
     }
-    pub fn expire(&mut self) -> bool {
+    pub fn expire(&mut self) -> usize {
         let too_old = SystemTime::now()
             .checked_sub(Duration::from_secs(self.buf_expire))
             .unwrap();
-        let mut changed = false;
+        let mut n_exp = 0;
         while !self.buf.is_empty() {
             if self.buf[0].ts < too_old {
-                changed = true;
+                n_exp += 1;
                 let _exp_data = self.buf.remove(0);
                 trace!("Tbuf expired tdata: {:?}", _exp_data);
             } else {
@@ -134,7 +134,7 @@ impl Tbuf {
             }
         }
         // trace!("(tbuf expire)Tbuf len: {}", self.buf.len());
-        changed
+        n_exp
     }
     pub fn update_avgs(&mut self) {
         let n_avg = self.avgs_t.len();

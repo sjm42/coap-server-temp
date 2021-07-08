@@ -7,6 +7,7 @@ use std::sync::*;
 use std::thread;
 use std::time;
 
+use crate::utils::options;
 use crate::utils::tbuf;
 
 // our global persistent state, with locking
@@ -19,14 +20,15 @@ static AVGS_T: SyncLazy<Mutex<Vec<u64>>> = SyncLazy::new(|| Mutex::new(Vec::new(
 // avgs_t[0] is used for returning the outside temp average
 // avgs_t[1] is used for the average temp to be sent to db
 
-pub fn init(out_sensor: &str, avgs_t: &[u64]) {
+pub fn init(opt: &options::GlobalServerOptions) {
     trace!("sensordata::init()");
-    assert!(avgs_t.len() == 2, "Must have exactly two avgs_t: for outside temp and db inserts.");
+    let avgs_t = [opt.avg_t_out, opt.avg_t_db];
 
-    let _thr_expire = thread::spawn(|| {
-        sensordata_expire();
+    let interval = opt.expire_interval;
+    let _thr_expire = thread::spawn(move || {
+        sensordata_expire(interval);
     });
-    set_outsensor(out_sensor);
+    set_outsensor(&opt.out_sensor);
     // Triggering lazy initialization
     let _n_sensors = SDATA.lock().unwrap().len();
     // Saving our avgs_t
@@ -35,20 +37,15 @@ pub fn init(out_sensor: &str, avgs_t: &[u64]) {
 }
 
 // This is run in its own thread while program is running
-fn sensordata_expire() {
+fn sensordata_expire(interval: u64) {
     loop {
-        thread::sleep(time::Duration::from_secs(30));
+        thread::sleep(time::Duration::from_secs(interval));
         trace!("sensordata_expire active");
         {
             for (sensorid, tbuf) in SDATA.lock().unwrap().iter_mut() {
-                let len1 = tbuf.len();
-                // expire() method returns true if changes were done
-                // i.e. some data was expired
-                if tbuf.expire() {
-                    tbuf.update_avgs();
-                }
-                let n_exp = len1 - tbuf.len();
+                let n_exp = tbuf.expire();
                 if n_exp > 0 {
+                    tbuf.update_avgs();
                     trace!("Expired: sensor {} n_exp={}", sensorid, n_exp);
                 }
             }
