@@ -1,7 +1,6 @@
 // main.rs
 #![feature(once_cell)]
 
-use build_timestamp::build_time;
 use log::*;
 use simplelog::*;
 use structopt::StructOpt;
@@ -9,7 +8,6 @@ use structopt::StructOpt;
 mod utils;
 use utils::*;
 
-build_time!("%A %Y-%m-%d %H:%M:%S UTC");
 fn main() {
     let opt = options::GlobalServerOptions::from_args();
 
@@ -25,7 +23,11 @@ fn main() {
     )
     .unwrap();
 
-    info!("CoAP server built {}", BUILD_TIME);
+    info!("CoAP server built from branch: {} commit: {}",
+        env!("GIT_BRANCH"),
+        env!("GIT_COMMIT"));
+    info!("Source timestamp: {}", env!("SOURCE_TIMESTAMP"));
+    info!("Compiler version: {}", env!("RUSTC_VERSION"));
     trace!("Options: {:?}", opt);
     info!("Initializing...");
     influxdb::init(&opt);
