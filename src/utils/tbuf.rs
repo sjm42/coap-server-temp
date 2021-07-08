@@ -95,7 +95,7 @@ impl Tbuf {
         }
         tbuf
     }
-    pub fn set_avgs(&mut self, avgs_t: &[u64]) {
+    pub fn with_avgs(&mut self, avgs_t: &[u64]) -> &mut Self {
         self.buf_expire = *avgs_t.iter().max().unwrap();
         self.avgs_t = avgs_t.to_vec();
         self.avgs = Vec::with_capacity(avgs_t.len());
@@ -103,14 +103,16 @@ impl Tbuf {
             self.avgs.push(f64::NAN);
         }
         self.update_avgs();
+        self
     }
-    pub fn len(&self) -> usize {
-        self.buf.len()
-    }
-    pub fn add(&mut self, d: Tdata) {
+    pub fn add(&mut self, d: Tdata) -> &mut Self {
         trace!("Tbuf::add({:?})", d);
         self.buf.push(d);
         self.update_avgs();
+        self
+    }
+    pub fn len(&self) -> usize {
+        self.buf.len()
     }
     pub fn avg(&self, t: u64) -> Option<f64> {
         for i in 0..self.avgs_t.len() {
@@ -139,15 +141,16 @@ impl Tbuf {
         // trace!("(tbuf expire)Tbuf len: {}", self.buf.len());
         n_exp
     }
-    pub fn update_avgs(&mut self) {
+    pub fn update_avgs(&mut self) -> &mut Self {
         let n_avg = self.avgs_t.len();
         // is it empty?
         if self.buf.is_empty() {
             for i in 0..n_avg {
                 self.avgs[i] = f64::NAN;
             }
-            return;
+            return self;
         }
+
         let now = SystemTime::now();
         let mut sums = Vec::with_capacity(n_avg);
         let mut sizes = Vec::with_capacity(n_avg);
@@ -175,6 +178,7 @@ impl Tbuf {
                 sz => sums[avg_i] / sz as f64,
             };
         }
+        self
     }
 }
 // EOF
