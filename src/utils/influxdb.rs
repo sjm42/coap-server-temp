@@ -11,29 +11,33 @@ use tokio::runtime::Runtime;
 
 use crate::utils::options;
 use crate::utils::sensordata;
+use std::path::Path;
 
 pub fn init(opt: &options::GlobalServerOptions) {
     trace!("influxdb::init()");
 
-    let interval = opt.influxdb_interval;
+    let interval = opt.send_interval;
     let binary = opt.influx_binary.clone();
-    let url = opt.influxdb_url.clone();
-    let token = opt.influxdb_token.clone();
-    let org = opt.influxdb_org.clone();
-    let bucket = opt.influxdb_bucket.clone();
-    let measurement = opt.influxdb_measurement.clone();
+    let url = opt.db_url.clone();
+    let token = opt.token.clone();
+    let org = opt.org.clone();
+    let bucket = opt.bucket.clone();
+    let measurement = opt.measurement.clone();
 
     // Start a new background thread for database inserts
-    if binary.starts_with('/') {
-        info!("Using external Influx binary {}", binary);
-        let _thr_db_send = thread::spawn(move || {
-            db_send_external(interval, &binary, &url, &token, &org, &bucket, &measurement)
-        });
-    } else {
-        info!("Using the internal InfluxDB client");
-        let _thr_db_send = thread::spawn(move || {
-            db_send_internal(interval, &url, &token, &org, &bucket, &measurement)
-        });
+    match binary {
+        None => {
+            info!("Using the internal InfluxDB client");
+            let _thr_db_send = thread::spawn(move || {
+                db_send_internal(interval, &url, &token, &org, &bucket, &measurement)
+            });
+        }
+        Some(fbin) => {
+            info!("Using external Influx binary {:?}", fbin);
+            let _thr_db_send = thread::spawn(move || {
+                db_send_external(interval, &fbin, &url, &token, &org, &bucket, &measurement)
+            });
+        }
     }
 }
 
@@ -96,7 +100,7 @@ fn db_send_internal(
 
 fn db_send_external(
     interval: i64,
-    binary: &str,
+    bin: &Path,
     url: &str,
     token: &str,
     org: &str,
@@ -125,7 +129,7 @@ fn db_send_external(
         }
         // Only send if we have anything to send...
         if !data_points.is_empty() {
-            match influx_run_cmd(&data_points, binary, url, token, org, bucket) {
+            match influx_run_cmd(&data_points, bin, url, token, org, bucket) {
                 Ok(_) => {
                     info!("****** influxdb: inserted {} points", data_points.len());
                 }
@@ -140,7 +144,7 @@ fn db_send_external(
 // Run the external influx command to write data.
 fn influx_run_cmd(
     data_points: &[String],
-    binary: &str,
+    bin: &Path,
     url: &str,
     token: &str,
     org: &str,
@@ -160,9 +164,9 @@ fn influx_run_cmd(
         "--bucket",
         bucket,
     ];
-    trace!("Running {} {}", binary, iargs.join(" "));
+    trace!("Running {:?} {}", bin, iargs.join(" "));
     trace!("data:\n{}", line_data);
-    let mut p = Command::new(binary)
+    let mut p = Command::new(bin)
         .args(&iargs)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
