@@ -1,14 +1,17 @@
 // utils/url.rs
 
-use coap_lite::ResponseType;
+pub use coap_lite::ResponseType;
 use log::*;
 use std::collections::HashMap;
+use std::fmt;
 
+#[derive(Debug)]
 pub struct UrlResponse {
     code: ResponseType,
     data: String,
 }
 
+#[allow(dead_code)]
 impl UrlResponse {
     pub fn new<T: Into<String>>(code: ResponseType, data: T) -> UrlResponse {
         UrlResponse {
@@ -29,6 +32,23 @@ pub type UrlHandler = fn(Option<&str>) -> UrlResponse;
 pub struct UrlMap {
     map: HashMap<String, UrlHandler>,
     default: UrlHandler,
+}
+
+impl fmt::Debug for UrlMap {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("UrlMap")
+            .field("default", &format!("{:p}", self.default as *const ()))
+            .field(
+                "map",
+                &self
+                    .map
+                    .iter()
+                    .map(|(k, v)| format!("{}->{:p}", k, *v as *const ()))
+                    .collect::<Vec<String>>()
+                    .join(", "),
+            )
+            .finish()
+    }
 }
 
 #[allow(dead_code)]

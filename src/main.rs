@@ -3,13 +3,12 @@
 
 use log::*;
 use simplelog::*;
-use structopt::StructOpt;
 
 mod utils;
-use utils::*;
+use utils::{coapserver, influxdb, options::*, sensordata};
 
 fn main() {
-    let opt = options::GlobalServerOptions::from_args();
+    let opt = GlobalServerOptions::from_args();
 
     let loglevel = match opt.trace {
         true => LevelFilter::Trace,

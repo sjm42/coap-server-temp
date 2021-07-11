@@ -1,19 +1,13 @@
 // utils/influxdb.rs
 
-use log::*;
-use std::io::Write;
-use std::process::*;
-use std::{thread, time};
-
+use super::{options, sensordata};
 use chrono::*;
 use influxdb_client;
+use log::*;
+use std::{io::Write, path::Path, process::*, thread, time};
 use tokio::runtime::Runtime;
 
-use crate::utils::options;
-use crate::utils::sensordata;
-use std::path::Path;
-
-pub fn init(opt: &options::GlobalServerOptions) {
+pub fn init(opt: &options::GlobalServerOptions) -> thread::JoinHandle<()> {
     trace!("influxdb::init()");
 
     let interval = opt.send_interval;
@@ -23,20 +17,19 @@ pub fn init(opt: &options::GlobalServerOptions) {
     let org = opt.org.clone();
     let bucket = opt.bucket.clone();
     let measurement = opt.measurement.clone();
-
     // Start a new background thread for database inserts
     match binary {
         None => {
             info!("Using the internal InfluxDB client");
-            let _thr_db_send = thread::spawn(move || {
+            thread::spawn(move || {
                 db_send_internal(interval, &url, &token, &org, &bucket, &measurement)
-            });
+            })
         }
         Some(fbin) => {
             info!("Using external Influx binary {:?}", fbin);
-            let _thr_db_send = thread::spawn(move || {
+            thread::spawn(move || {
                 db_send_external(interval, &fbin, &url, &token, &org, &bucket, &measurement)
-            });
+            })
         }
     }
 }

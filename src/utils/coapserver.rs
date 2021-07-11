@@ -1,16 +1,10 @@
 // utils/coapserver.rs
 
-use log::*;
-use std::lazy::*;
-use std::sync::*;
-
+use super::{options, sensordata, url::*};
 use coap_lite::{CoapRequest, CoapResponse, RequestType as Method, ResponseType};
-use std::net::SocketAddr;
+use log::*;
+use std::{lazy::*, net::SocketAddr, sync::*};
 use tokio::runtime::Runtime;
-
-use crate::utils::options;
-use crate::utils::sensordata;
-use crate::utils::url::*;
 
 // our global persistent state, with locking
 static URLMAP: SyncLazy<Mutex<UrlMap>> = SyncLazy::new(|| {
@@ -32,6 +26,7 @@ pub fn init(_opt: &options::GlobalServerOptions) {
         info!("Creating url handlers");
         let u = URLMAP.lock().unwrap();
         info!("Have {} URL responders.", u.len());
+        trace!("URL map:\n{:?}", u);
     }
     {
         let _i = CNT.lock().unwrap();
@@ -165,9 +160,9 @@ pub fn serve_coap(opt: &options::GlobalServerOptions) {
     let listen = &opt.listen;
     let rt = Runtime::new().unwrap();
     rt.block_on(async move {
-        let mut server = coap::Server::new(listen).unwrap();
         info!("Listening on {}", listen);
         info!("Server running...");
+        let mut server = coap::Server::new(listen).unwrap();
         server.run(handle_coap_req).await.unwrap();
     });
 }

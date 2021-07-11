@@ -1,14 +1,8 @@
 // utils/sensordata.rs
 
+use super::{options, tbuf};
 use log::*;
-use std::collections::HashMap;
-use std::lazy::*;
-use std::sync::*;
-use std::thread;
-use std::time;
-
-use crate::utils::options;
-use crate::utils::tbuf;
+use std::{collections::HashMap, lazy::*, sync::*, thread, time};
 
 // our global persistent state, with locking
 type SensorData = HashMap<String, tbuf::Tbuf>;
@@ -21,20 +15,22 @@ static AVGS_T: SyncLazy<Mutex<Vec<u64>>> = SyncLazy::new(|| Mutex::new(Vec::new(
 // avgs_t[0] is used for returning the outside temp average
 // avgs_t[1] is used for the average temp to be sent to db
 
-pub fn init(opt: &options::GlobalServerOptions) {
+pub fn init(opt: &options::GlobalServerOptions) -> thread::JoinHandle<()> {
     trace!("sensordata::init()");
-    let avgs_t = [opt.avg_t_out, opt.avg_t_db];
-
-    let interval = opt.expire_interval;
-    let _thr_expire = thread::spawn(move || {
-        sensordata_expire(interval);
-    });
     set_outsensor(&opt.out_sensor);
     // Triggering lazy initialization
-    let _n_sensors = SDATA.lock().unwrap().len();
-    // Saving our avgs_t
-    let mut a_t = AVGS_T.lock().unwrap();
-    *a_t = avgs_t.to_vec();
+    {
+        let _n_sensors = SDATA.lock().unwrap().len();
+    }
+    {
+        // Saving our avgs_t
+        let mut a_t = AVGS_T.lock().unwrap();
+        *a_t = [opt.avg_t_out, opt.avg_t_db].to_vec();
+    }
+    let interval = opt.expire_interval;
+    thread::spawn(move || {
+        sensordata_expire(interval);
+    })
 }
 
 // This is run in its own thread while program is running
