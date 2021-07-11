@@ -1,9 +1,8 @@
 // utils/url.rs
 
-pub use coap_lite::ResponseType;
 use log::*;
-use std::collections::HashMap;
-use std::fmt;
+pub use coap_lite::ResponseType;
+use std::{collections::HashMap, fmt};
 
 #[derive(Debug)]
 pub struct UrlResponse {
