@@ -1,7 +1,7 @@
 // utils/url.rs
 
-use log::*;
 pub use coap_lite::ResponseType;
+use log::*;
 use std::{collections::HashMap, fmt};
 
 #[derive(Debug)]

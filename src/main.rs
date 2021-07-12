@@ -33,7 +33,6 @@ fn main() {
     info!("Initializing...");
     influxdb::init(&opt);
     sensordata::init(&opt);
-    coapserver::init(&opt);
     coapserver::serve_coap(&opt);
 }
 // EOF

@@ -7,8 +7,8 @@ use std::{lazy::*, net::SocketAddr, sync::*};
 use tokio::runtime::Runtime;
 
 // our global persistent state, with locking
-static URLMAP: SyncLazy<Mutex<UrlMap>> = SyncLazy::new(|| {
-    Mutex::new(
+static URLMAP: SyncLazy<RwLock<UrlMap>> = SyncLazy::new(|| {
+    RwLock::new(
         UrlMap::new()
             .with_map("store_temp", resp_store_temp)
             .with_map("list_sensors", resp_list_sensors)
@@ -17,21 +17,6 @@ static URLMAP: SyncLazy<Mutex<UrlMap>> = SyncLazy::new(|| {
             .with_map("dump", resp_dump),
     )
 });
-
-static CNT: SyncLazy<Mutex<u64>> = SyncLazy::new(|| Mutex::new(0u64));
-
-pub fn init(_opt: &options::GlobalServerOptions) {
-    trace!("coapserver::init()");
-    {
-        info!("Creating url handlers");
-        let u = URLMAP.lock().unwrap();
-        info!("Have {} URL responders.", u.len());
-        trace!("URL map:\n{:?}", u);
-    }
-    {
-        let _i = CNT.lock().unwrap();
-    }
-}
 
 fn resp_store_temp(payload: Option<&str>) -> UrlResponse {
     match payload {
@@ -79,7 +64,7 @@ fn resp_dump(_payload: Option<&str>) -> UrlResponse {
 }
 
 fn get_handler(url_path: &str) -> UrlHandler {
-    URLMAP.lock().unwrap().get(url_path)
+    URLMAP.read().unwrap().get(url_path)
 }
 
 async fn handle_coap_req(request: CoapRequest<SocketAddr>) -> Option<CoapResponse> {
@@ -156,7 +141,19 @@ async fn handle_coap_req(request: CoapRequest<SocketAddr>) -> Option<CoapRespons
     }
 }
 
+static CNT: SyncLazy<Mutex<u64>> = SyncLazy::new(|| Mutex::new(0u64));
+
 pub fn serve_coap(opt: &options::GlobalServerOptions) {
+    trace!("coapserver::serve_coap()");
+    {
+        info!("Creating url handlers");
+        let u = URLMAP.read().unwrap();
+        info!("Have {} URL responders.", u.len());
+        trace!("URL map:\n{:?}", u);
+    }
+    {
+        let _i = CNT.lock().unwrap();
+    }
     let listen = &opt.listen;
     let rt = Runtime::new().unwrap();
     rt.block_on(async move {
