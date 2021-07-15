@@ -7,6 +7,7 @@ use simplelog::*;
 mod utils;
 use utils::{coapserver, influxdb, options::*, sensordata};
 
+
 fn main() {
     let opt = GlobalServerOptions::from_args();
 
@@ -31,8 +32,16 @@ fn main() {
     info!("Compiler version: {}", env!("RUSTC_VERSION"));
     trace!("Options: {:?}", opt);
     info!("Initializing...");
-    influxdb::init(&opt);
-    sensordata::init(&opt);
-    coapserver::serve_coap(&opt);
+    let jh_s = sensordata::init(&opt);
+    let jh_i = influxdb::init(&opt);
+
+    // Enter CoAP server loop
+    coapserver::run(&opt);
+
+    // Normally never reached
+    let res_s = jh_s.join();
+    info!("Sensordata thread exit status: {:?}", res_s);
+    let res_i = jh_i.join();
+    info!("InfluxDB thread exit status: {:?}", res_i);
 }
 // EOF

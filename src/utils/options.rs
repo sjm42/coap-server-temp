@@ -3,6 +3,7 @@
 pub use std::path::PathBuf;
 pub use structopt::StructOpt;
 
+
 #[derive(Debug, StructOpt)]
 /// Note: internal InfluxDB client is used unless --influx-binary option is set.
 pub struct GlobalServerOptions {

@@ -1,11 +1,13 @@
 // utils/coapserver.rs
 
 use super::{options, sensordata, url::*};
+
 use coap_lite::{CoapRequest, CoapResponse, RequestType as Method, ResponseType};
 use log::*;
 use parking_lot::*;
 use std::{lazy::*, net::SocketAddr};
 use tokio::runtime::Runtime;
+
 
 // our global persistent state, with locking
 static URLMAP: SyncLazy<RwLock<UrlMap>> = SyncLazy::new(|| {
@@ -18,6 +20,7 @@ static URLMAP: SyncLazy<RwLock<UrlMap>> = SyncLazy::new(|| {
             .with_map("dump", resp_dump),
     )
 });
+
 
 fn resp_store_temp(payload: Option<&str>) -> UrlResponse {
     match payload {
@@ -142,18 +145,19 @@ async fn handle_coap_req(request: CoapRequest<SocketAddr>) -> Option<CoapRespons
     }
 }
 
+
 static CNT: SyncLazy<FairMutex<u64>> = SyncLazy::new(|| FairMutex::new(0u64));
 
-pub fn serve_coap(opt: &options::GlobalServerOptions) {
-    trace!("coapserver::serve_coap()");
+pub fn run(opt: &options::GlobalServerOptions) {
+    trace!("coapserver::run()");
+    {
+        let _i = CNT.lock();
+    }
     {
         info!("Creating url handlers");
         let u = URLMAP.read();
         info!("Have {} URL responders.", u.len());
         trace!("URL map:\n{:?}", u);
-    }
-    {
-        let _i = CNT.lock();
     }
     let listen = &opt.listen;
     let rt = Runtime::new().unwrap();

@@ -1,15 +1,17 @@
 // utils/influxdb.rs
 
 use super::{options, sensordata};
+
 use chrono::*;
 use influxdb_client;
 use log::*;
+use std::path::PathBuf;
 use std::{io::Write, path::Path, process::*, thread, time};
 use tokio::runtime::Runtime;
 
+
 pub fn init(opt: &options::GlobalServerOptions) -> thread::JoinHandle<()> {
     trace!("influxdb::init()");
-
     let interval = opt.send_interval;
     let binary = opt.influx_binary.clone();
     let url = opt.db_url.clone();
@@ -18,19 +20,63 @@ pub fn init(opt: &options::GlobalServerOptions) -> thread::JoinHandle<()> {
     let bucket = opt.bucket.clone();
     let measurement = opt.measurement.clone();
     // Start a new background thread for database inserts
-    match binary {
-        None => {
-            info!("Using the internal InfluxDB client");
-            thread::spawn(move || {
-                db_send_internal(interval, &url, &token, &org, &bucket, &measurement)
-            })
-        }
-        Some(fbin) => {
-            info!("Using external Influx binary {:?}", fbin);
-            thread::spawn(move || {
-                db_send_external(interval, &fbin, &url, &token, &org, &bucket, &measurement)
-            })
-        }
+    thread::spawn(move || {
+        run_db_send(interval, binary, url, token, org, bucket, measurement);
+    })
+}
+
+fn run_db_send(
+    interval: i64,
+    binary: Option<PathBuf>,
+    url: String,
+    token: String,
+    org: String,
+    bucket: String,
+    measurement: String,
+) {
+    loop {
+        let bin = binary.clone();
+        let i_url = url.clone();
+        let i_token = token.clone();
+        let i_org = org.clone();
+        let i_bucket = bucket.clone();
+        let i_measurement = measurement.clone();
+
+        let jh = match bin {
+            Some(fbin) => {
+                info!("Using external Influx binary {:?}", fbin);
+                thread::spawn(move || {
+                    db_send_external(
+                        interval,
+                        &fbin,
+                        &i_url,
+                        &i_token,
+                        &i_org,
+                        &i_bucket,
+                        &i_measurement,
+                    )
+                })
+            }
+            None => {
+                info!("Using the internal InfluxDB client");
+                thread::spawn(move || {
+                    db_send_internal(
+                        interval,
+                        &i_url,
+                        &i_token,
+                        &i_org,
+                        &i_bucket,
+                        &i_measurement,
+                    )
+                })
+            }
+        };
+        info!("InfluxDB data push thread started as id {:?}", jh.thread().id());
+        // We are blocking in join() until child thread exits -- should never happen.
+        let res = jh.join();
+        error!("InfluxDB thread exited! Reason: {:?}", res);
+        thread::sleep(time::Duration::from_secs(10));
+        info!("Restarting InfluxDB thread...");
     }
 }
 
@@ -80,7 +126,7 @@ fn db_send_internal(
                     .await
                 {
                     Ok(_) => {
-                        info!("****** influxdb: inserted {} points", pts.len());
+                        info!("****** InfluxDB: inserted {} points", pts.len());
                     }
                     Err(e) => {
                         error!("InfluxDB client error: {:?}", e);
@@ -124,7 +170,7 @@ fn db_send_external(
         if !data_points.is_empty() {
             match influx_run_cmd(&data_points, bin, url, token, org, bucket) {
                 Ok(_) => {
-                    info!("****** influxdb: inserted {} points", data_points.len());
+                    info!("****** InfluxDB: inserted {} points", data_points.len());
                 }
                 Err(e) => {
                     error!("InfluxDB client error: {:?}", e);
