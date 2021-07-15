@@ -6,14 +6,12 @@ use log::*;
 use parking_lot::*;
 use std::{collections::HashMap, lazy::*, thread, time};
 
-
 // our global persistent state, with locking
 type SensorData = HashMap<String, tbuf::Tbuf>;
 static SENSOR_DATA: SyncLazy<RwLock<SensorData>> =
     SyncLazy::new(|| RwLock::new(SensorData::with_capacity(8)));
 static OUT_SENSOR: SyncLazy<RwLock<String>> = SyncLazy::new(|| RwLock::new(String::new()));
 static AVERAGES_T: SyncLazy<RwLock<Vec<u64>>> = SyncLazy::new(|| RwLock::new(Vec::new()));
-
 
 // Note:
 // avgs_t[0] is used for returning the outside temp average
@@ -42,7 +40,10 @@ fn run_sensordata_expire(interval: u64) {
         let jh = thread::spawn(move || {
             sensordata_expire(interval);
         });
-        info!("Sensor data expire thread started as id {:?}", jh.thread().id());
+        info!(
+            "Sensor data expire thread started as id {:?}",
+            jh.thread().id()
+        );
         // We are blocking in join() until child thread exits -- should never happen.
         let res = jh.join();
         error!("Expire thread exited, reason: {:?}", res);

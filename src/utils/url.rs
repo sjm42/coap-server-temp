@@ -4,7 +4,6 @@ pub use coap_lite::ResponseType;
 use log::*;
 use std::{collections::HashMap, fmt};
 
-
 #[derive(Debug)]
 pub struct UrlResponse {
     code: ResponseType,
@@ -26,7 +25,6 @@ impl UrlResponse {
         self.data.as_str()
     }
 }
-
 
 pub type UrlHandler = fn(Option<&str>) -> UrlResponse;
 

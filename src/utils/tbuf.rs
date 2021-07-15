@@ -3,7 +3,6 @@
 use log::*;
 use std::time::*;
 
-
 #[derive(Debug)]
 pub struct Tdata {
     ts: SystemTime,
@@ -67,7 +66,6 @@ impl From<(SystemTime, f64)> for Tdata {
         Tdata { ts: t, data: d }
     }
 }
-
 
 #[derive(Debug)]
 pub struct Tbuf {

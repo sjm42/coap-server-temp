@@ -9,7 +9,6 @@ use std::path::PathBuf;
 use std::{io::Write, path::Path, process::*, thread, time};
 use tokio::runtime::Runtime;
 
-
 pub fn init(opt: &options::GlobalServerOptions) -> thread::JoinHandle<()> {
     trace!("influxdb::init()");
     let interval = opt.send_interval;
@@ -71,7 +70,10 @@ fn run_db_send(
                 })
             }
         };
-        info!("InfluxDB data push thread started as id {:?}", jh.thread().id());
+        info!(
+            "InfluxDB data push thread started as id {:?}",
+            jh.thread().id()
+        );
         // We are blocking in join() until child thread exits -- should never happen.
         let res = jh.join();
         error!("InfluxDB thread exited! Reason: {:?}", res);

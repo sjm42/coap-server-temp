@@ -7,13 +7,12 @@ use simplelog::*;
 mod utils;
 use utils::{coapserver, influxdb, options::*, sensordata};
 
-
 fn main() {
     let opt = GlobalServerOptions::from_args();
-
-    let loglevel = match opt.trace {
-        true => LevelFilter::Trace,
-        _ => LevelFilter::Info,
+    let loglevel = if opt.trace {
+        LevelFilter::Trace
+    } else {
+        LevelFilter::Info
     };
     SimpleLogger::init(
         loglevel,
