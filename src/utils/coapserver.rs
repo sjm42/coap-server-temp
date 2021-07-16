@@ -107,7 +107,7 @@ async fn handle_coap_req(request: CoapRequest<SocketAddr>) -> Option<CoapRespons
                 resp_data = "INVALID UTF8";
             }
             Ok(payload) => {
-                debug!("<-- payload: {}", payload);
+                info!("<-- payload: {}", payload);
                 // Call the URL handler with payload
                 ret = get_handler(req_path)(Some(&payload));
                 resp_code = ret.code();
