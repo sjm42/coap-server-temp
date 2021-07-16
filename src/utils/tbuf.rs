@@ -81,7 +81,7 @@ impl Tbuf {
         Tbuf::new_cap(16, avgs_t)
     }
     pub fn new_cap(cap: usize, avgs_t: &[u64]) -> Tbuf {
-        trace!("Tbuf::new_avgs()");
+        trace!("Tbuf::new_cap({}, {:?})", cap, avgs_t);
         let mut tbuf = Tbuf {
             buf_expire: *avgs_t.iter().max().unwrap(),
             avgs_t: avgs_t.to_vec(),
@@ -96,6 +96,7 @@ impl Tbuf {
         tbuf
     }
     pub fn with_avgs(&mut self, avgs_t: &[u64]) -> &mut Self {
+        trace!("Tbuf::with_avgs({:?})", avgs_t);
         self.buf_expire = *avgs_t.iter().max().unwrap();
         self.avgs_t = avgs_t.to_vec();
         self.avgs = Vec::with_capacity(avgs_t.len());
@@ -123,6 +124,7 @@ impl Tbuf {
         None
     }
     pub fn expire(&mut self) -> usize {
+        trace!("Tbuf::expire()");
         let too_old = SystemTime::now()
             .checked_sub(Duration::from_secs(self.buf_expire))
             .unwrap();
@@ -142,6 +144,7 @@ impl Tbuf {
         n_exp
     }
     pub fn update_avgs(&mut self) -> &mut Self {
+        trace!("Tbuf::update_avgs()");
         let n_avg = self.avgs_t.len();
         // is it empty?
         if self.buf.is_empty() {

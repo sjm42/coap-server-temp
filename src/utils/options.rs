@@ -7,6 +7,8 @@ pub use structopt::StructOpt;
 /// Note: internal InfluxDB client is used unless --influx-binary option is set.
 pub struct GlobalServerOptions {
     #[structopt(short, long)]
+    pub debug: bool,
+    #[structopt(short, long)]
     pub trace: bool,
     #[structopt(short, long, default_value = "127.0.0.1:5683")]
     pub listen: String,

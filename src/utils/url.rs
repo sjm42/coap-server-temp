@@ -2,7 +2,11 @@
 
 pub use coap_lite::ResponseType;
 use log::*;
-use std::{collections::HashMap, fmt};
+use std::{
+    collections::HashMap,
+    fmt,
+    fmt::{Debug, Display},
+};
 
 #[derive(Debug)]
 pub struct UrlResponse {
@@ -56,24 +60,34 @@ impl UrlMap {
         UrlMap::new_cap(8)
     }
     pub fn new_cap(cap: usize) -> UrlMap {
+        trace!("UrlMap::new_cap({})", cap);
         UrlMap {
             map: HashMap::with_capacity(cap),
             default: resp_notfound,
         }
     }
-    pub fn with_map<T: Into<String>>(mut self, urlpath: T, handler: UrlHandler) -> Self {
-        self.add_map(urlpath, handler);
+    pub fn with_key<T>(mut self, urlpath: T, handler: UrlHandler) -> Self
+    where
+        T: Display + Into<String>,
+    {
+        self.add_key(urlpath, handler);
         self
     }
     pub fn clear(&mut self) -> &mut Self {
+        trace!("UrlMap::clear()");
         self.map.clear();
         self.set_default(resp_notfound)
     }
     pub fn set_default(&mut self, handler: UrlHandler) -> &mut Self {
+        trace!("UrlMap::set_default()");
         self.default = handler;
         self
     }
-    pub fn add_map<T: Into<String>>(&mut self, urlpath: T, handler: UrlHandler) -> &mut Self {
+    pub fn add_key<T>(&mut self, urlpath: T, handler: UrlHandler) -> &mut Self
+    where
+        T: Display + Into<String>,
+    {
+        trace!("UrlMap::add_key({})", urlpath);
         self.map.insert(urlpath.into(), handler);
         self
     }

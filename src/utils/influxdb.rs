@@ -70,7 +70,7 @@ fn run_db_send(
                 })
             }
         };
-        info!(
+        debug!(
             "InfluxDB data push thread started as id {:?}",
             jh.thread().id()
         );
@@ -78,7 +78,7 @@ fn run_db_send(
         let res = jh.join();
         error!("InfluxDB thread exited! Reason: {:?}", res);
         thread::sleep(time::Duration::from_secs(10));
-        info!("Restarting InfluxDB thread...");
+        error!("Restarting InfluxDB thread...");
     }
 }
 
@@ -122,7 +122,7 @@ fn db_send_internal(
             rt.spawn(async move {
                 // ownership of pts and c are moved into here
                 // hence, new ones must be created each time before calling this
-                trace!("influxdb data: {:?}", &pts);
+                debug!("influxdb data: {:?}", &pts);
                 match c
                     .insert_points(&pts, influxdb_client::TimestampOptions::FromPoint)
                     .await
@@ -206,7 +206,7 @@ fn influx_run_cmd(
         bucket,
     ];
     trace!("Running {:?} {}", bin, iargs.join(" "));
-    trace!("data:\n{}", line_data);
+    debug!("data:\n{}", line_data);
     let mut p = Command::new(bin)
         .args(&iargs)
         .stdin(Stdio::piped())

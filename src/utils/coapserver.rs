@@ -13,11 +13,11 @@ use tokio::runtime::Runtime;
 static URLMAP: SyncLazy<RwLock<UrlMap>> = SyncLazy::new(|| {
     RwLock::new(
         UrlMap::new()
-            .with_map("store_temp", resp_store_temp)
-            .with_map("list_sensors", resp_list_sensors)
-            .with_map("avg_out", resp_avg_out)
-            .with_map("set_outsensor", resp_set_outsensor)
-            .with_map("dump", resp_dump),
+            .with_key("store_temp", resp_store_temp)
+            .with_key("list_sensors", resp_list_sensors)
+            .with_key("avg_out", resp_avg_out)
+            .with_key("set_outsensor", resp_set_outsensor)
+            .with_key("dump", resp_dump),
     )
 });
 
@@ -107,7 +107,7 @@ async fn handle_coap_req(request: CoapRequest<SocketAddr>) -> Option<CoapRespons
                 resp_data = "INVALID UTF8";
             }
             Ok(payload) => {
-                info!("<-- payload: {}", payload);
+                debug!("<-- payload: {}", payload);
                 // Call the URL handler with payload
                 ret = get_handler(req_path)(Some(&payload));
                 resp_code = ret.code();
@@ -115,7 +115,7 @@ async fn handle_coap_req(request: CoapRequest<SocketAddr>) -> Option<CoapRespons
             }
         },
         _ => {
-            error!("--> Unsupported CoAP method {:?}", method);
+            info!("--> Unsupported CoAP method {:?}", method);
             resp_code = ResponseType::BadRequest;
             resp_data = "INVALID METHOD";
         }
@@ -126,7 +126,7 @@ async fn handle_coap_req(request: CoapRequest<SocketAddr>) -> Option<CoapRespons
         Some(mut message) => {
             message.set_status(resp_code);
             message.message.payload = resp_data.into();
-            trace!("--> {:?}", message);
+            debug!("--> {:?}", message);
             Some(message)
         }
         _ => None,
@@ -139,7 +139,7 @@ pub fn run(opt: &options::GlobalServerOptions) {
         info!("Creating url handlers");
         let u = URLMAP.read();
         info!("Have {} URL responders.", u.len());
-        trace!("URL map:\n{:?}", u);
+        debug!("URL map:\n{:?}", u);
     }
     let listen = &opt.listen;
     let rt = Runtime::new().unwrap();

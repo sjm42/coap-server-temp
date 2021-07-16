@@ -40,7 +40,7 @@ fn run_sensordata_expire(interval: u64) {
         let jh = thread::spawn(move || {
             sensordata_expire(interval);
         });
-        info!(
+        debug!(
             "Sensor data expire thread started as id {:?}",
             jh.thread().id()
         );
@@ -48,7 +48,7 @@ fn run_sensordata_expire(interval: u64) {
         let res = jh.join();
         error!("Expire thread exited, reason: {:?}", res);
         thread::sleep(time::Duration::from_secs(10));
-        info!("Restarting expire thread...");
+        error!("Restarting expire thread...");
     }
 }
 
@@ -62,7 +62,7 @@ fn sensordata_expire(interval: u64) {
                 let n_exp = tbuf.expire();
                 if n_exp > 0 {
                     tbuf.update_avgs();
-                    info!(
+                    debug!(
                         "****** Sensor {} expired {} point{}, {} left.",
                         sensorid,
                         n_exp,
@@ -130,11 +130,11 @@ pub fn sensors_list3() -> Vec<String> {
 
 pub fn dump() {
     // Just dump our internal sensor data into log
-    info!("dump: out_sensor={}", &get_outsensor());
+    debug!("dump: out_sensor={}", &get_outsensor());
     let sd = SENSOR_DATA.read();
-    info!("dump: Have {} sensors.", sd.len());
+    debug!("dump: Have {} sensors.", sd.len());
     for (sensorid, tbuf) in sd.iter() {
-        info!("dump: Sensor {} tbuf={:?}", sensorid, tbuf);
+        debug!("dump: Sensor {} tbuf={:?}", sensorid, tbuf);
     }
 }
 

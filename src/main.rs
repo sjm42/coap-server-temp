@@ -11,6 +11,8 @@ fn main() {
     let opt = GlobalServerOptions::from_args();
     let loglevel = if opt.trace {
         LevelFilter::Trace
+    } else if opt.debug {
+        LevelFilter::Debug
     } else {
         LevelFilter::Info
     };
@@ -29,7 +31,7 @@ fn main() {
     );
     info!("Source timestamp: {}", env!("SOURCE_TIMESTAMP"));
     info!("Compiler version: {}", env!("RUSTC_VERSION"));
-    trace!("Options: {:?}", opt);
+    debug!("Options: {:?}", opt);
     info!("Initializing...");
     let jh_s = sensordata::init(&opt);
     let jh_i = influxdb::init(&opt);
