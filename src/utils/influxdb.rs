@@ -102,14 +102,11 @@ fn db_send_internal(
         let ts_i = ts - (ts % interval);
 
         let mut pts = Vec::with_capacity(8);
-        for sensorid in sensordata::sensors_list3() {
+        for datapoint in sensordata::sensors_db() {
             pts.push(
                 influxdb_client::Point::new(measurement)
-                    .tag("sensor", sensorid.as_str())
-                    .field(
-                        "value",
-                        sensordata::get_avg(&sensorid, sensordata::get_avg_t_db()).unwrap(),
-                    )
+                    .tag("sensor", datapoint.0.as_str())
+                    .field("value", datapoint.1)
                     .timestamp(ts_i),
             );
         }
@@ -159,16 +156,12 @@ fn db_send_external(
         let ts_i = ts - (ts % interval);
 
         data_points.clear();
-        for sensorid in sensordata::sensors_list3() {
+        for datapoint in sensordata::sensors_db() {
             data_points.push(format!(
                 "{},sensor={} value={:.2} {}\n",
-                measurement,
-                &sensorid,
-                sensordata::get_avg(&sensorid, sensordata::get_avg_t_db()).unwrap(),
-                ts_i
+                measurement, &datapoint.0, datapoint.1, ts_i
             ));
         }
-        // Only send if we have anything to send...
         if !data_points.is_empty() {
             match influx_run_cmd(&data_points, bin, url, token, org, bucket) {
                 Ok(_) => {
@@ -182,7 +175,6 @@ fn db_send_external(
     }
 }
 
-// Run the external influx command to write data.
 fn influx_run_cmd(
     data_points: &[String],
     bin: &Path,

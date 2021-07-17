@@ -105,7 +105,9 @@ pub fn get_avg(sensorid: &str, t: u64) -> Option<f64> {
 
 pub fn get_avg_out() -> Option<f64> {
     trace!("sensordata::get_avg_out()");
-    get_avg(&get_outsensor(), get_avg_t_out())
+    let avg_t_out = get_avg_t_out();
+    let outsensor = OUT_SENSOR.read();
+    get_avg(&outsensor, avg_t_out)
 }
 
 pub fn sensors_list() -> Vec<String> {
@@ -115,17 +117,19 @@ pub fn sensors_list() -> Vec<String> {
     list
 }
 
-pub fn sensors_list3() -> Vec<String> {
-    // Return Vec of Strings listing all the sensor ids that have at least
-    // 3 datapoints in them, as cloned/owned strings
+pub fn sensors_db() -> Vec<(String, f64)> {
+    let avg_t_db = get_avg_t_db();
+    let mut dump = vec![];
     let sd = SENSOR_DATA.read();
-    let list = sd
-        .keys()
-        .filter(|s| sd.get(*s).unwrap().len() >= 3)
-        .cloned()
-        .collect::<Vec<_>>();
-    trace!("sensordata::sensor_list3() --> {:?}", list);
-    list
+    for sensorid in sd.keys() {
+        if sd.get(sensorid).unwrap().len() >= 3 {
+            dump.push((
+                sensorid.clone(),
+                sd.get(sensorid).unwrap().avg(avg_t_db).unwrap(),
+            ));
+        }
+    }
+    dump
 }
 
 pub fn dump() {
