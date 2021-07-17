@@ -100,20 +100,15 @@ async fn handle_coap_req(request: CoapRequest<SocketAddr>) -> Option<CoapRespons
             resp_code = ret.code();
             resp_data = ret.data();
         }
-        Method::Post => match String::from_utf8(request.message.payload) {
-            Err(e) => {
-                error!("--> UTF-8 decode error: {:?}", e);
-                resp_code = ResponseType::BadRequest;
-                resp_data = "INVALID UTF8";
-            }
-            Ok(payload) => {
-                info!("<-- payload: {}", payload);
-                // Call the URL handler with payload
-                ret = get_handler(req_path)(Some(&payload));
-                resp_code = ret.code();
-                resp_data = ret.data();
-            }
-        },
+        Method::Post => {
+            // Let's do relaxed UTF-8 conversion.
+            let payload= &String::from_utf8_lossy(&request.message.payload);
+            info!("<-- payload: {}", payload);
+            // Call the URL handler with payload
+            ret = get_handler(req_path)(Some(payload));
+            resp_code = ret.code();
+            resp_data = ret.data();
+        }
         _ => {
             info!("--> Unsupported CoAP method {:?}", method);
             resp_code = ResponseType::BadRequest;

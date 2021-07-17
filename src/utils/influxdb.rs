@@ -215,8 +215,8 @@ fn influx_run_cmd(
         error!(
             "influx command failed, exit status {}\nstderr:\n{}\nstdout:\n{}\n",
             out.status.code().unwrap(),
-            String::from_utf8(out.stderr).unwrap(),
-            String::from_utf8(out.stdout).unwrap()
+            String::from_utf8_lossy(&out.stderr),
+            String::from_utf8_lossy(&out.stdout)
         );
         Err(out.status)
     }
