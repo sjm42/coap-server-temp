@@ -77,7 +77,7 @@ fn run_db_send(
         // We are blocking in join() until child thread exits -- should never happen.
         let res = jh.join();
         error!("InfluxDB thread exited! Reason: {:?}", res);
-        thread::sleep(time::Duration::from_secs(10));
+        thread::sleep(time::Duration::new(10, 0));
         error!("Restarting InfluxDB thread...");
     }
 }
@@ -95,7 +95,7 @@ fn db_send_internal(
     loop {
         let waitsec = interval - (Utc::now().timestamp() % interval);
         // wait until next interval start
-        thread::sleep(time::Duration::from_secs(waitsec as u64));
+        thread::sleep(time::Duration::new(waitsec as u64, 0));
 
         trace!("influxdb::db_send_internal() active");
         let ts = Utc::now().timestamp();
@@ -149,7 +149,7 @@ fn db_send_external(
     loop {
         let waitsec = interval - (Utc::now().timestamp() % interval);
         // wait until next interval start
-        thread::sleep(time::Duration::from_secs(waitsec as u64));
+        thread::sleep(time::Duration::new(waitsec as u64, 0));
 
         trace!("influxdb::db_send_ext() active");
         let ts = Utc::now().timestamp();

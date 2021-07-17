@@ -126,7 +126,7 @@ impl Tbuf {
     pub fn expire(&mut self) -> usize {
         trace!("Tbuf::expire()");
         let too_old = SystemTime::now()
-            .checked_sub(Duration::from_secs(self.buf_expire))
+            .checked_sub(Duration::new(self.buf_expire, 0))
             .unwrap();
         let mut n_exp = 0;
         while !self.buf.is_empty() {
@@ -162,7 +162,7 @@ impl Tbuf {
             sums.push(0.0f64);
             sizes.push(0u64);
             too_old.push(
-                now.checked_sub(Duration::from_secs(self.avgs_t[i]))
+                now.checked_sub(Duration::new(self.avgs_t[i], 0))
                     .unwrap(),
             );
         }

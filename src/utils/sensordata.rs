@@ -47,13 +47,13 @@ fn run_sensordata_expire(interval: u64) {
         // We are blocking in join() until child thread exits -- should never happen.
         let res = jh.join();
         error!("Expire thread exited, reason: {:?}", res);
-        thread::sleep(time::Duration::from_secs(10));
+        thread::sleep(time::Duration::new(10, 0));
         error!("Restarting expire thread...");
     }
 }
 
 fn sensordata_expire(interval: u64) {
-    let delay = time::Duration::from_secs(interval);
+    let delay = time::Duration::new(interval, 0);
     loop {
         thread::sleep(delay);
         trace!("sensordata_expire active");
