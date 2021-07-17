@@ -62,7 +62,7 @@ fn sensordata_expire(interval: u64) {
                 let n_exp = tbuf.expire();
                 if n_exp > 0 {
                     tbuf.update_avgs();
-                    debug!(
+                    info!(
                         "****** Sensor {} expired {} point{}, {} left.",
                         sensorid,
                         n_exp,
