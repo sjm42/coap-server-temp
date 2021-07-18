@@ -161,10 +161,7 @@ impl Tbuf {
         for i in 0..n_avg {
             sums.push(0.0f64);
             sizes.push(0u64);
-            too_old.push(
-                now.checked_sub(Duration::new(self.avgs_t[i], 0))
-                    .unwrap(),
-            );
+            too_old.push(now.checked_sub(Duration::new(self.avgs_t[i], 0)).unwrap());
         }
         for buf_i in 0..self.buf.len() {
             let data = self.buf[buf_i].data;

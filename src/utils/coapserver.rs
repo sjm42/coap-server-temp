@@ -102,7 +102,7 @@ async fn handle_coap_req(request: CoapRequest<SocketAddr>) -> Option<CoapRespons
         }
         Method::Post => {
             // Let's do relaxed UTF-8 conversion.
-            let payload= &String::from_utf8_lossy(&request.message.payload);
+            let payload = &String::from_utf8_lossy(&request.message.payload);
             info!("<-- payload: {}", payload);
             // Call the URL handler with payload
             ret = get_handler(req_path)(Some(payload));
