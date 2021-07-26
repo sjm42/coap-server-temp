@@ -24,13 +24,11 @@ fn main() {
     )
     .unwrap();
 
-    info!(
-        "CoAP server built from branch: {} commit: {}",
-        env!("GIT_BRANCH"),
-        env!("GIT_COMMIT")
-    );
-    info!("Source timestamp: {}", env!("SOURCE_TIMESTAMP"));
-    info!("Compiler version: {}", env!("RUSTC_VERSION"));
+    info!("Starting CoAP server");
+    debug!("Git branch: {}", env!("GIT_BRANCH"));
+    debug!("Git commit: {}", env!("GIT_COMMIT"));
+    debug!("Source timestamp: {}", env!("SOURCE_TIMESTAMP"));
+    debug!("Compiler version: {}", env!("RUSTC_VERSION"));
     debug!("Options: {:?}", opt);
     info!("Initializing...");
     let jh_s = sensordata::init(&opt);
