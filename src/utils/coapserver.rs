@@ -13,11 +13,11 @@ use tokio::runtime::Runtime;
 static URLMAP: SyncLazy<RwLock<UrlMap>> = SyncLazy::new(|| {
     RwLock::new(
         UrlMap::new()
-            .with_key("store_temp", resp_store_temp)
-            .with_key("list_sensors", resp_list_sensors)
-            .with_key("avg_out", resp_avg_out)
-            .with_key("set_outsensor", resp_set_outsensor)
-            .with_key("dump", resp_dump),
+            .with_path("store_temp", resp_store_temp)
+            .with_path("list_sensors", resp_list_sensors)
+            .with_path("avg_out", resp_avg_out)
+            .with_path("set_outsensor", resp_set_outsensor)
+            .with_path("dump", resp_dump),
     )
 });
 
@@ -67,7 +67,7 @@ fn resp_dump(_payload: Option<&str>) -> UrlResponse {
 }
 
 fn get_handler(url_path: &str) -> UrlHandler {
-    URLMAP.read().get(url_path)
+    URLMAP.read().get_handler(url_path)
 }
 
 static CNT: AtomicU64 = AtomicU64::new(0);

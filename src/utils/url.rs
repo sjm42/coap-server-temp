@@ -66,11 +66,11 @@ impl UrlMap {
             default: resp_notfound,
         }
     }
-    pub fn with_key<T>(mut self, urlpath: T, handler: UrlHandler) -> Self
+    pub fn with_path<T>(mut self, urlpath: T, handler: UrlHandler) -> Self
     where
         T: Display + Into<String>,
     {
-        self.add_key(urlpath, handler);
+        self.add_path(urlpath, handler);
         self
     }
     pub fn clear(&mut self) -> &mut Self {
@@ -83,15 +83,15 @@ impl UrlMap {
         self.default = handler;
         self
     }
-    pub fn add_key<T>(&mut self, urlpath: T, handler: UrlHandler) -> &mut Self
+    pub fn add_path<T>(&mut self, urlpath: T, handler: UrlHandler) -> &mut Self
     where
         T: Display + Into<String>,
     {
-        trace!("UrlMap::add_key({})", urlpath);
+        trace!("UrlMap::add_path({})", urlpath);
         self.map.insert(urlpath.into(), handler);
         self
     }
-    pub fn get(&self, urlpath: &str) -> UrlHandler {
+    pub fn get_handler(&self, urlpath: &str) -> UrlHandler {
         match self.map.get(urlpath) {
             Some(handler) => *handler,
             None => self.default,
