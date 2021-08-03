@@ -66,10 +66,6 @@ fn resp_dump(_payload: Option<&str>) -> UrlResponse {
     UrlResponse::new(ResponseType::Content, "OK")
 }
 
-fn get_handler(url_path: &str) -> UrlHandler {
-    URLMAP.read().get_handler(url_path)
-}
-
 static CNT: AtomicU64 = AtomicU64::new(0);
 
 async fn handle_coap_req(request: CoapRequest<SocketAddr>) -> Option<CoapResponse> {
@@ -96,7 +92,7 @@ async fn handle_coap_req(request: CoapRequest<SocketAddr>) -> Option<CoapRespons
     match method {
         Method::Get => {
             // Call the URL handler without payload
-            ret = get_handler(req_path)(None);
+            ret = URLMAP.read().get_handler(req_path)(None);
             resp_code = ret.code();
             resp_data = ret.data();
         }
@@ -105,7 +101,7 @@ async fn handle_coap_req(request: CoapRequest<SocketAddr>) -> Option<CoapRespons
             let payload = &String::from_utf8_lossy(&request.message.payload);
             info!("<-- payload: {}", payload);
             // Call the URL handler with payload
-            ret = get_handler(req_path)(Some(payload));
+            ret = URLMAP.read().get_handler(req_path)(Some(payload));
             resp_code = ret.code();
             resp_data = ret.data();
         }

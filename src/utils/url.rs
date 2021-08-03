@@ -6,6 +6,7 @@ use std::{
     collections::HashMap,
     fmt,
     fmt::{Debug, Display},
+    hash::Hash,
 };
 
 #[derive(Debug)]
@@ -91,8 +92,11 @@ impl UrlMap {
         self.map.insert(urlpath.into(), handler);
         self
     }
-    pub fn get_handler(&self, urlpath: &str) -> UrlHandler {
-        match self.map.get(urlpath) {
+    pub fn get_handler<T>(&self, urlpath: T) -> UrlHandler
+    where
+        T: Display + AsRef<str> + Hash + Eq,
+    {
+        match self.map.get(urlpath.as_ref()) {
             Some(handler) => *handler,
             None => self.default,
         }
