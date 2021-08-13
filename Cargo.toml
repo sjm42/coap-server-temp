@@ -8,19 +8,19 @@ resolver = "2"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-structopt = "0"
-log = "0"
-simplelog = "0"
-chrono = "0"
-lazy_static = "1"
-parking_lot = "0"
-tokio = "1"
-coap = "0"
-coap-lite = "0"
-influxdb-client = "0"
+structopt = "*"
+log = "*"
+simplelog = "*"
+chrono = "*"
+lazy_static = "*"
+parking_lot = "*"
+tokio = "*"
+coap = "*"
+coap-lite = "0.5"
+influxdb-client = "*"
 
 [build-dependencies]
-build-data = "0"
+build-data = "*"
 
 [profile.release]
 lto = true

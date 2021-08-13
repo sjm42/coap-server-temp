@@ -113,7 +113,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "77d8f903accdde8a0d15a641b54874db940bad70284b2315f425f229ccb6f586"
 dependencies = [
  "bytes",
- "coap-lite 0.5.1",
+ "coap-lite",
  "futures",
  "log",
  "num-derive",
@@ -133,19 +133,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c7eafc0a93e6a6b76a58bc80278e497a182fcc9e62b8fbcccff702c5d76f5350"
 
 [[package]]
-name = "coap-lite"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a3e8d8b5467b61463511fa632d2db1ec242c1ec1eb4d1e4ccf48f5744a040374"
-
-[[package]]
 name = "coap-server-temp"
 version = "0.1.0"
 dependencies = [
  "build-data",
  "chrono",
  "coap",
- "coap-lite 0.6.0",
+ "coap-lite",
  "influxdb-client",
  "lazy_static",
  "log",
