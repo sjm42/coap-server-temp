@@ -6,7 +6,7 @@ use coap_lite::{CoapRequest, CoapResponse, RequestType as Method, ResponseType};
 use log::*;
 use parking_lot::*;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::{lazy::*, net::SocketAddr};
+use std::{error::Error, lazy::*, net::SocketAddr};
 use tokio::runtime::Runtime;
 
 // our global persistent state, with locking
@@ -124,7 +124,7 @@ async fn handle_coap_req(request: CoapRequest<SocketAddr>) -> Option<CoapRespons
     }
 }
 
-pub fn run(opt: &options::GlobalServerOptions) {
+pub fn run(opt: &options::GlobalServerOptions) -> Result<(), Box<dyn Error>> {
     trace!("coapserver::run()");
     {
         info!("Creating url handlers");
@@ -133,12 +133,13 @@ pub fn run(opt: &options::GlobalServerOptions) {
         debug!("URL map:\n{:?}", u);
     }
     let listen = &opt.listen;
-    let rt = Runtime::new().unwrap();
+    let rt = Runtime::new()?;
     rt.block_on(async move {
         info!("Listening on {}", listen);
         info!("Server running...");
         let mut server = coap::Server::new(listen).unwrap();
         server.run(handle_coap_req).await.unwrap();
     });
+    Ok(())
 }
 // EOF
