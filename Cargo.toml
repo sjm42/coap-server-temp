@@ -16,7 +16,7 @@ lazy_static = "*"
 parking_lot = "*"
 tokio = "*"
 coap = "*"
-coap-lite = "0.5"
+coap-lite = "*"
 influxdb-client = "*"
 
 [build-dependencies]
