@@ -3,15 +3,16 @@
 use super::{options, tbuf};
 
 use log::*;
+use once_cell::sync::Lazy;
 use parking_lot::*;
-use std::{collections::HashMap, lazy::*, thread, time};
+use std::{collections::HashMap, thread, time};
 
 // our global persistent state, with locking
 type SensorData = HashMap<String, tbuf::Tbuf>;
-static SENSOR_DATA: SyncLazy<RwLock<SensorData>> =
-    SyncLazy::new(|| RwLock::new(SensorData::with_capacity(8)));
-static OUT_SENSOR: SyncLazy<RwLock<String>> = SyncLazy::new(|| RwLock::new(String::new()));
-static AVERAGES_T: SyncLazy<RwLock<Vec<u64>>> = SyncLazy::new(|| RwLock::new(Vec::new()));
+static SENSOR_DATA: Lazy<RwLock<SensorData>> =
+    Lazy::new(|| RwLock::new(SensorData::with_capacity(8)));
+static OUT_SENSOR: Lazy<RwLock<String>> = Lazy::new(|| RwLock::new(String::new()));
+static AVERAGES_T: Lazy<RwLock<Vec<u64>>> = Lazy::new(|| RwLock::new(Vec::new()));
 
 // Note:
 // avgs_t[0] is used for returning the outside temp average

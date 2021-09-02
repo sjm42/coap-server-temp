@@ -1,5 +1,4 @@
 // main.rs
-#![feature(once_cell)]
 
 use log::*;
 use simplelog::*;

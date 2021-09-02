@@ -143,6 +143,7 @@ dependencies = [
  "influxdb-client",
  "lazy_static",
  "log",
+ "once_cell",
  "parking_lot",
  "simplelog",
  "structopt",

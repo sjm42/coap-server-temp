@@ -1,16 +1,16 @@
 // utils/coapserver.rs
 
 use super::{options, sensordata, url::*};
-
 use coap_lite::{CoapRequest, CoapResponse, RequestType as Method, ResponseType};
 use log::*;
+use once_cell::sync::Lazy;
 use parking_lot::*;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::{error::Error, lazy::*, net::SocketAddr};
+use std::{error::Error, net::SocketAddr};
 use tokio::runtime::Runtime;
 
 // our global persistent state, with locking
-static URLMAP: SyncLazy<RwLock<UrlMap>> = SyncLazy::new(|| {
+static URLMAP: Lazy<RwLock<UrlMap>> = Lazy::new(|| {
     RwLock::new(
         UrlMap::new()
             .with_path("store_temp", resp_store_temp)
