@@ -16,7 +16,7 @@ lazy_static = "*"
 once_cell = "*"
 parking_lot = "*"
 tokio = "*"
-coap = { path = "../coap-rs" }
+coap = "*"
 coap-lite = "0.7"
 influxdb-client = "*"
 

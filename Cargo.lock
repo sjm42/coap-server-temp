@@ -108,7 +108,9 @@ dependencies = [
 
 [[package]]
 name = "coap"
-version = "0.11.2"
+version = "0.11.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4a4ef1b5546f6ba554509aa8eab047d71088e79f908dbd4a5d6dcf9610b616de"
 dependencies = [
  "bytes",
  "coap-lite",
