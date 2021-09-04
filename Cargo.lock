@@ -109,8 +109,6 @@ dependencies = [
 [[package]]
 name = "coap"
 version = "0.11.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "919970c5337194513a76b2154b344c2ad06d491e4107297673f2b39936064e80"
 dependencies = [
  "bytes",
  "coap-lite",
@@ -128,9 +126,9 @@ dependencies = [
 
 [[package]]
 name = "coap-lite"
-version = "0.5.1"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c7eafc0a93e6a6b76a58bc80278e497a182fcc9e62b8fbcccff702c5d76f5350"
+checksum = "2911526fe9fc3bb90ff13ff52bd5454e93da0685ba8ed105f06bfc0e898fd950"
 
 [[package]]
 name = "coap-server-temp"

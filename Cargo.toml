@@ -2,7 +2,7 @@
 name = "coap-server-temp"
 version = "0.1.0"
 authors = ["Sami J. Mäkinen <sjm@iki.fi>"]
-edition = "2018"
+edition = "2021"
 resolver = "2"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -16,8 +16,8 @@ lazy_static = "*"
 once_cell = "*"
 parking_lot = "*"
 tokio = "*"
-coap = "*"
-coap-lite = "0.5"
+coap = { path = "../coap-rs" }
+coap-lite = "0.7"
 influxdb-client = "*"
 
 [build-dependencies]
