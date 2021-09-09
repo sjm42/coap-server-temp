@@ -17,7 +17,7 @@ once_cell = "*"
 parking_lot = "*"
 tokio = "*"
 coap = "*"
-coap-lite = "0.7"
+coap-lite = "*"
 influxdb-client = "*"
 
 [build-dependencies]
