@@ -1,6 +1,9 @@
-// utils/coapserver.rs
+// coapserver.rs
 
-use super::{options, sensordata, url::*};
+use super::options;
+use super::sensordata;
+use super::url::*;
+
 use coap_lite::{CoapRequest, CoapResponse, RequestType as Method, ResponseType};
 use log::*;
 use once_cell::sync::Lazy;

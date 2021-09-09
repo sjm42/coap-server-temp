@@ -1,6 +1,7 @@
-// utils/sensordata.rs
+// sensordata.rs
 
-use super::{options, tbuf};
+use super::options;
+use super::tbuf;
 
 use log::*;
 use once_cell::sync::Lazy;

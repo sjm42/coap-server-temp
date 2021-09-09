@@ -1,4 +1,4 @@
-// utils/options.rs
+// options.rs
 
 pub use std::path::PathBuf;
 pub use structopt::StructOpt;

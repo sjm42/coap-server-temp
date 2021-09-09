@@ -3,8 +3,15 @@
 use log::*;
 use simplelog::*;
 use std::error::Error;
-mod utils;
-use utils::{coapserver, influxdb, options::*, sensordata};
+
+mod coapserver;
+mod influxdb;
+mod options;
+mod sensordata;
+mod tbuf;
+mod url;
+
+use options::*;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let opt = GlobalServerOptions::from_args();

@@ -1,9 +1,9 @@
-// utils/influxdb.rs
+// influxdb.rs
 
-use super::{options, sensordata};
+use super::options;
+use super::sensordata;
 
 use chrono::*;
-use influxdb_client;
 use log::*;
 use std::path::PathBuf;
 use std::{io::Write, path::Path, process::*, thread, time};
