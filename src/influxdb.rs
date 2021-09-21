@@ -1,7 +1,7 @@
 // influxdb.rs
 
-use super::options;
 use super::sensordata;
+use super::startup;
 
 use chrono::*;
 use log::*;
@@ -9,7 +9,7 @@ use std::path::PathBuf;
 use std::{io::Write, path::Path, process::*, thread, time};
 use tokio::runtime::Runtime;
 
-pub fn init(opt: &options::GlobalServerOptions) -> thread::JoinHandle<()> {
+pub fn init(opt: &startup::OptsCommon) -> thread::JoinHandle<()> {
     trace!("influxdb::init()");
     let interval = opt.send_interval;
     let binary = opt.influx_binary.clone();

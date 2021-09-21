@@ -1,6 +1,6 @@
 // sensordata.rs
 
-use super::options;
+use super::startup;
 use super::tbuf;
 
 use log::*;
@@ -18,7 +18,7 @@ static AVERAGES_T: Lazy<RwLock<Vec<u64>>> = Lazy::new(|| RwLock::new(Vec::new())
 // Note:
 // avgs_t[0] is used for returning the outside temp average
 // avgs_t[1] is used for the average temp to be sent to db
-pub fn init(opt: &options::GlobalServerOptions) -> thread::JoinHandle<()> {
+pub fn init(opt: &startup::OptsCommon) -> thread::JoinHandle<()> {
     trace!("sensordata::init()");
     set_outsensor(&opt.out_sensor);
     // Triggering lazy initialization

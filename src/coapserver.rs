@@ -1,7 +1,7 @@
 // coapserver.rs
 
-use super::options;
 use super::sensordata;
+use super::startup;
 use super::url::*;
 
 use coap_lite::{CoapRequest, CoapResponse, RequestType as Method, ResponseType};
@@ -127,7 +127,7 @@ async fn handle_coap_req(request: CoapRequest<SocketAddr>) -> Option<CoapRespons
     }
 }
 
-pub fn run(opt: &options::GlobalServerOptions) -> Result<(), Box<dyn Error>> {
+pub fn run(opt: &startup::OptsCommon) -> Result<(), Box<dyn Error>> {
     trace!("coapserver::run()");
     {
         info!("Creating url handlers");

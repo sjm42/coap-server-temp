@@ -8,17 +8,17 @@ resolver = "2"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-structopt = "*"
-log = "*"
-simplelog = "*"
 chrono = "*"
-lazy_static = "*"
-once_cell = "*"
-parking_lot = "*"
-tokio = "*"
 coap = "*"
 coap-lite = "*"
+env_logger = "*"
 influxdb-client = "*"
+lazy_static = "*"
+log = "*"
+once_cell = "*"
+parking_lot = "*"
+structopt = "*"
+tokio = "*"
 
 [build-dependencies]
 build-data = "*"

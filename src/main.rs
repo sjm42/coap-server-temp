@@ -1,46 +1,28 @@
 // main.rs
 
 use log::*;
-use simplelog::*;
 use std::error::Error;
 
 mod coapserver;
 mod influxdb;
-mod options;
 mod sensordata;
+mod startup;
 mod tbuf;
 mod url;
 
-use options::*;
+use startup::*;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let opt = GlobalServerOptions::from_args();
-    let loglevel = if opt.trace {
-        LevelFilter::Trace
-    } else if opt.debug {
-        LevelFilter::Debug
-    } else {
-        LevelFilter::Info
-    };
-    SimpleLogger::init(
-        loglevel,
-        ConfigBuilder::new()
-            .set_time_format_str("%Y-%m-%d %H:%M:%S")
-            .build(),
-    )?;
+    let mut opts = OptsCommon::from_args();
+    start_pgm(&opts, "CoAP server");
+    opts.finish()?;
+    debug!("Global config: {:?}", &opts);
 
-    info!("Starting CoAP server");
-    debug!("Git branch: {}", env!("GIT_BRANCH"));
-    debug!("Git commit: {}", env!("GIT_COMMIT"));
-    debug!("Source timestamp: {}", env!("SOURCE_TIMESTAMP"));
-    debug!("Compiler version: {}", env!("RUSTC_VERSION"));
-    debug!("Options: {:?}", opt);
-    info!("Initializing...");
-    let jh_s = sensordata::init(&opt);
-    let jh_i = influxdb::init(&opt);
+    let jh_s = sensordata::init(&opts);
+    let jh_i = influxdb::init(&opts);
 
     // Enter CoAP server loop
-    coapserver::run(&opt)?;
+    coapserver::run(&opts)?;
 
     // Normally never reached
     let res_s = jh_s.join();
