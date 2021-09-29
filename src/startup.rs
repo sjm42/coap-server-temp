@@ -1,8 +1,8 @@
 // options.rs
 
 use log::*;
+use std::env;
 pub use std::path::PathBuf;
-use std::{env, error::Error};
 pub use structopt::StructOpt;
 
 /// Note: internal InfluxDB client is used unless --influx-binary option is set.
@@ -38,7 +38,7 @@ pub struct OptsCommon {
     pub expire_interval: u64,
 }
 impl OptsCommon {
-    pub fn finish(&mut self) -> Result<(), Box<dyn Error>> {
+    pub fn finish(&mut self) -> anyhow::Result<()> {
         Ok(())
     }
     fn get_loglevel(&self) -> LevelFilter {
@@ -53,7 +53,7 @@ impl OptsCommon {
 }
 
 #[allow(dead_code)]
-pub fn expand_home(pathname: &mut String) -> Result<(), Box<dyn Error>> {
+pub fn expand_home(pathname: &mut String) -> anyhow::Result<()> {
     let home = env::var("HOME")?;
     *pathname = pathname.as_str().replace("$HOME", &home);
     Ok(())

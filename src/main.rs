@@ -1,7 +1,6 @@
 // main.rs
 
 use log::*;
-use std::error::Error;
 
 mod coapserver;
 mod influxdb;
@@ -12,7 +11,7 @@ mod url;
 
 use startup::*;
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> anyhow::Result<()> {
     let mut opts = OptsCommon::from_args();
     start_pgm(&opts, "CoAP server");
     opts.finish()?;

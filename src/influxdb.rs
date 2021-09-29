@@ -3,6 +3,7 @@
 use super::sensordata;
 use super::startup;
 
+use anyhow::anyhow;
 use chrono::*;
 use log::*;
 use std::path::PathBuf;
@@ -182,7 +183,7 @@ fn influx_run_cmd(
     token: &str,
     org: &str,
     bucket: &str,
-) -> Result<(), ExitStatus> {
+) -> anyhow::Result<()> {
     let line_data = data_points.join("\n");
     let iargs = [
         "write",
@@ -218,7 +219,7 @@ fn influx_run_cmd(
             String::from_utf8_lossy(&out.stderr),
             String::from_utf8_lossy(&out.stdout)
         );
-        Err(out.status)
+        Err(anyhow!(out.status))
     }
 }
 // EOF

@@ -8,8 +8,8 @@ use coap_lite::{CoapRequest, CoapResponse, RequestType as Method, ResponseType};
 use log::*;
 use once_cell::sync::Lazy;
 use parking_lot::*;
+use std::net::SocketAddr;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::{error::Error, net::SocketAddr};
 use tokio::runtime::Runtime;
 
 // our global persistent state, with locking
@@ -127,7 +127,7 @@ async fn handle_coap_req(request: CoapRequest<SocketAddr>) -> Option<CoapRespons
     }
 }
 
-pub fn run(opt: &startup::OptsCommon) -> Result<(), Box<dyn Error>> {
+pub fn run(opt: &startup::OptsCommon) -> anyhow::Result<()> {
     trace!("coapserver::run()");
     {
         info!("Creating url handlers");
