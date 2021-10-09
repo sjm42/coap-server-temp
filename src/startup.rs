@@ -2,7 +2,7 @@
 
 use log::*;
 use std::env;
-pub use std::path::PathBuf;
+pub use std::ffi::OsString;
 pub use structopt::StructOpt;
 
 /// Note: internal InfluxDB client is used unless --influx-binary option is set.
@@ -23,7 +23,7 @@ pub struct OptsCommon {
     #[structopt(long, default_value = "60")]
     pub send_interval: i64,
     #[structopt(long, parse(from_os_str))]
-    pub influx_binary: Option<PathBuf>,
+    pub influx_binary: Option<OsString>,
     #[structopt(long, default_value = "http://127.0.0.1:8086")]
     pub db_url: String,
     #[structopt(long, default_value = "secret_token")]

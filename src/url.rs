@@ -7,6 +7,8 @@ use std::fmt;
 use std::fmt::{Debug, Display};
 use std::{collections::HashMap, hash::Hash};
 
+use crate::sensordata;
+
 #[derive(Debug)]
 pub struct UrlResponse {
     code: ResponseType,
@@ -29,7 +31,7 @@ impl UrlResponse {
     }
 }
 
-pub type UrlHandler = fn(Option<&str>) -> UrlResponse;
+pub type UrlHandler = fn(&sensordata::MyData, Option<&str>) -> UrlResponse;
 
 pub struct UrlMap {
     map: HashMap<String, UrlHandler>,
@@ -55,6 +57,13 @@ impl fmt::Debug for UrlMap {
 
 #[allow(dead_code)]
 impl UrlMap {
+    fn resp_notfound(_md: &sensordata::MyData, payload: Option<&str>) -> UrlResponse {
+        trace!(
+            "UrlHandler::resp_notfound: payload={}",
+            payload.unwrap_or("<none>")
+        );
+        UrlResponse::new(ResponseType::NotFound, "NOT FOUND")
+    }
     pub fn new() -> UrlMap {
         UrlMap::new_cap(8)
     }
@@ -62,12 +71,12 @@ impl UrlMap {
         trace!("UrlMap::new_cap({})", cap);
         UrlMap {
             map: HashMap::with_capacity(cap),
-            default: resp_notfound,
+            default: Self::resp_notfound,
         }
     }
-    pub fn with_path<T>(mut self, urlpath: T, handler: UrlHandler) -> Self
+    pub fn with_path<S>(mut self, urlpath: S, handler: UrlHandler) -> Self
     where
-        T: Display + Into<String>,
+        S: Display + Into<String>,
     {
         self.add_path(urlpath, handler);
         self
@@ -75,24 +84,24 @@ impl UrlMap {
     pub fn clear(&mut self) -> &mut Self {
         trace!("UrlMap::clear()");
         self.map.clear();
-        self.set_default(resp_notfound)
+        self.set_default(Self::resp_notfound)
     }
     pub fn set_default(&mut self, handler: UrlHandler) -> &mut Self {
         trace!("UrlMap::set_default()");
         self.default = handler;
         self
     }
-    pub fn add_path<T>(&mut self, urlpath: T, handler: UrlHandler) -> &mut Self
+    pub fn add_path<S>(&mut self, urlpath: S, handler: UrlHandler) -> &mut Self
     where
-        T: Display + Into<String>,
+        S: Display + Into<String>,
     {
         trace!("UrlMap::add_path({})", urlpath);
         self.map.insert(urlpath.into(), handler);
         self
     }
-    pub fn get_handler<T>(&self, urlpath: T) -> UrlHandler
+    pub fn get_handler<S>(&self, urlpath: S) -> UrlHandler
     where
-        T: Display + AsRef<str> + Hash + Eq,
+        S: Display + AsRef<str> + Hash + Eq,
     {
         match self.map.get(urlpath.as_ref()) {
             Some(handler) => *handler,
@@ -102,13 +111,5 @@ impl UrlMap {
     pub fn len(&self) -> usize {
         self.map.len()
     }
-}
-
-fn resp_notfound(payload: Option<&str>) -> UrlResponse {
-    trace!(
-        "UrlHandler::resp_notfound: payload={}",
-        payload.unwrap_or("<none>")
-    );
-    UrlResponse::new(ResponseType::NotFound, "NOT FOUND")
 }
 // EOF

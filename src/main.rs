@@ -1,6 +1,9 @@
 // main.rs
 
+#![feature(async_closure)]
+
 use log::*;
+use std::sync::Arc;
 
 mod coapserver;
 mod influxdb;
@@ -17,17 +20,15 @@ fn main() -> anyhow::Result<()> {
     opts.finish()?;
     debug!("Global config: {:?}", &opts);
 
-    let jh_s = sensordata::init(&opts);
-    let jh_i = influxdb::init(&opts);
+    let md = Arc::new(sensordata::MyData::new(&opts));
+    sensordata::MyData::start_expire(md.clone(), &opts);
+    influxdb::init(md.clone(), &opts);
 
     // Enter CoAP server loop
-    coapserver::run(&opts)?;
+    let srv = coapserver::MyCoapServer::new(md, &opts);
+    srv.run()?;
 
     // Normally never reached
-    let res_s = jh_s.join();
-    info!("Sensordata thread exit status: {:?}", res_s);
-    let res_i = jh_i.join();
-    info!("InfluxDB thread exit status: {:?}", res_i);
     Ok(())
 }
 // EOF

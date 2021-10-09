@@ -6,71 +6,52 @@ use super::startup;
 use anyhow::anyhow;
 use chrono::*;
 use log::*;
-use std::path::PathBuf;
-use std::{io::Write, path::Path, process::*, thread, time};
+use std::{ffi::OsString, io::Write, process::*, sync::Arc, thread, time};
 use tokio::runtime::Runtime;
 
-pub fn init(opt: &startup::OptsCommon) -> thread::JoinHandle<()> {
-    trace!("influxdb::init()");
-    let interval = opt.send_interval;
-    let binary = opt.influx_binary.clone();
-    let url = opt.db_url.clone();
-    let token = opt.token.clone();
-    let org = opt.org.clone();
-    let bucket = opt.bucket.clone();
-    let measurement = opt.measurement.clone();
-    // Start a new background thread for database inserts
-    thread::spawn(move || {
-        run_db_send(interval, binary, url, token, org, bucket, measurement);
-    })
-}
-
-fn run_db_send(
+#[derive(Clone, Debug)]
+struct InfluxCtx {
     interval: i64,
-    binary: Option<PathBuf>,
+    binary: Option<OsString>,
     url: String,
     token: String,
     org: String,
     bucket: String,
     measurement: String,
-) {
-    loop {
-        let bin = binary.clone();
-        let i_url = url.clone();
-        let i_token = token.clone();
-        let i_org = org.clone();
-        let i_bucket = bucket.clone();
-        let i_measurement = measurement.clone();
+}
 
-        let jh = match bin {
-            Some(fbin) => {
-                info!("Using external Influx binary {:?}", fbin);
-                thread::spawn(move || {
-                    db_send_external(
-                        interval,
-                        &fbin,
-                        &i_url,
-                        &i_token,
-                        &i_org,
-                        &i_bucket,
-                        &i_measurement,
-                    )
-                })
+pub fn init(md: Arc<sensordata::MyData>, opt: &startup::OptsCommon) {
+    trace!("influxdb::init()");
+    let ctx = InfluxCtx {
+        interval: opt.send_interval,
+        binary: opt.influx_binary.clone(),
+        url: opt.db_url.clone(),
+        token: opt.token.clone(),
+        org: opt.org.clone(),
+        bucket: opt.bucket.clone(),
+        measurement: opt.measurement.clone(),
+    };
+    // Start a new background thread for database inserts
+    thread::spawn(move || {
+        run_db_send(md, ctx);
+    });
+}
+
+fn run_db_send(md: Arc<sensordata::MyData>, ctx: InfluxCtx) {
+    loop {
+        let md_i = md.clone();
+        let ctx_i = ctx.clone();
+
+        let jh = thread::spawn(move || match ctx_i.binary {
+            Some(ref bin) => {
+                info!("Using external Influx binary {:?}", bin);
+                db_send_external(md_i, ctx_i)
             }
             None => {
                 info!("Using the internal InfluxDB client");
-                thread::spawn(move || {
-                    db_send_internal(
-                        interval,
-                        &i_url,
-                        &i_token,
-                        &i_org,
-                        &i_bucket,
-                        &i_measurement,
-                    )
-                })
+                db_send_internal(md_i, ctx_i)
             }
-        };
+        });
         debug!(
             "InfluxDB data push thread started as id {:?}",
             jh.thread().id()
@@ -84,37 +65,30 @@ fn run_db_send(
 }
 
 // Use the Rust native influxdb client library
-fn db_send_internal(
-    interval: i64,
-    url: &str,
-    token: &str,
-    org: &str,
-    bucket: &str,
-    measurement: &str,
-) {
+fn db_send_internal(md: Arc<sensordata::MyData>, ctx: InfluxCtx) {
     let rt = Runtime::new().unwrap();
     loop {
-        let waitsec = interval - (Utc::now().timestamp() % interval);
+        let waitsec = ctx.interval - (Utc::now().timestamp() % ctx.interval);
         // wait until next interval start
         thread::sleep(time::Duration::new(waitsec as u64, 0));
 
         trace!("influxdb::db_send_internal() active");
         let ts = Utc::now().timestamp();
-        let ts_i = ts - (ts % interval);
+        let ts_i = ts - (ts % ctx.interval);
 
         let mut pts = Vec::with_capacity(8);
-        for datapoint in sensordata::sensors_db() {
+        for datapoint in md.sensors_db() {
             pts.push(
-                influxdb_client::Point::new(measurement)
+                influxdb_client::Point::new(&ctx.measurement)
                     .tag("sensor", datapoint.0.as_str())
                     .field("value", datapoint.1)
                     .timestamp(ts_i),
             );
         }
         if !pts.is_empty() {
-            let c = influxdb_client::Client::new(url, token)
-                .with_org(org)
-                .with_bucket(bucket)
+            let c = influxdb_client::Client::new(&ctx.url, &ctx.token)
+                .with_org(&ctx.org)
+                .with_bucket(&ctx.bucket)
                 .with_precision(influxdb_client::Precision::S);
 
             rt.spawn(async move {
@@ -137,34 +111,26 @@ fn db_send_internal(
     }
 }
 
-fn db_send_external(
-    interval: i64,
-    bin: &Path,
-    url: &str,
-    token: &str,
-    org: &str,
-    bucket: &str,
-    measurement: &str,
-) {
+fn db_send_external(md: Arc<sensordata::MyData>, ctx: InfluxCtx) {
     let mut data_points = Vec::with_capacity(8);
     loop {
-        let waitsec = interval - (Utc::now().timestamp() % interval);
+        let waitsec = ctx.interval - (Utc::now().timestamp() % ctx.interval);
         // wait until next interval start
         thread::sleep(time::Duration::new(waitsec as u64, 0));
 
         trace!("influxdb::db_send_ext() active");
         let ts = Utc::now().timestamp();
-        let ts_i = ts - (ts % interval);
+        let ts_i = ts - (ts % ctx.interval);
 
         data_points.clear();
-        for datapoint in sensordata::sensors_db() {
+        for datapoint in md.sensors_db() {
             data_points.push(format!(
                 "{},sensor={} value={:.2} {}\n",
-                measurement, &datapoint.0, datapoint.1, ts_i
+                ctx.measurement, &datapoint.0, datapoint.1, ts_i
             ));
         }
         if !data_points.is_empty() {
-            match influx_run_cmd(&data_points, bin, url, token, org, bucket) {
+            match influx_run_cmd(&data_points, &ctx) {
                 Ok(_) => {
                     info!("****** InfluxDB: inserted {} points", data_points.len());
                 }
@@ -176,31 +142,24 @@ fn db_send_external(
     }
 }
 
-fn influx_run_cmd(
-    data_points: &[String],
-    bin: &Path,
-    url: &str,
-    token: &str,
-    org: &str,
-    bucket: &str,
-) -> anyhow::Result<()> {
+fn influx_run_cmd(data_points: &[String], ctx: &InfluxCtx) -> anyhow::Result<()> {
     let line_data = data_points.join("\n");
     let iargs = [
         "write",
         "--precision",
         "s",
         "--host",
-        url,
+        &ctx.url,
         "--token",
-        token,
+        &ctx.token,
         "--org",
-        org,
+        &ctx.org,
         "--bucket",
-        bucket,
+        &ctx.bucket,
     ];
-    trace!("Running {:?} {}", bin, iargs.join(" "));
+    trace!("Running {:?} {}", &ctx.binary, iargs.join(" "));
     debug!("data:\n{}", line_data);
-    let mut p = Command::new(bin)
+    let mut p = Command::new(ctx.binary.as_ref().unwrap())
         .args(&iargs)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
