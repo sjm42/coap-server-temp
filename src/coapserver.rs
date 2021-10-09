@@ -18,6 +18,7 @@ pub struct MyCoapServer {
     urlmap: UrlMap,
     cnt: AtomicU64,
 }
+
 impl MyCoapServer {
     pub fn new(md: Arc<sensordata::MyData>, opts: &startup::OptsCommon) -> Self {
         MyCoapServer {
@@ -33,6 +34,7 @@ impl MyCoapServer {
             cnt: AtomicU64::new(0),
         }
     }
+
     pub fn run(&self) -> anyhow::Result<()> {
         self.runtime.block_on(async move {
             info!("Listening on {}", &self.addr);
@@ -45,6 +47,7 @@ impl MyCoapServer {
         });
         Ok(())
     }
+
     async fn handle_coap_req(&self, request: CoapRequest<SocketAddr>) -> Option<CoapResponse> {
         let i = self.cnt.fetch_add(1, Ordering::Relaxed);
         let req_path = &request.get_path();

@@ -1,5 +1,4 @@
 // main.rs
-
 #![feature(async_closure)]
 
 use log::*;
@@ -12,6 +11,9 @@ mod startup;
 mod tbuf;
 mod url;
 
+use coapserver::MyCoapServer;
+use influxdb::InfluxCtx;
+use sensordata::*;
 use startup::*;
 
 fn main() -> anyhow::Result<()> {
@@ -20,12 +22,14 @@ fn main() -> anyhow::Result<()> {
     opts.finish()?;
     debug!("Global config: {:?}", &opts);
 
-    let md = Arc::new(sensordata::MyData::new(&opts));
-    sensordata::MyData::start_expire(md.clone(), &opts);
-    influxdb::init(md.clone(), &opts);
+    let md = Arc::new(MyData::new(&opts));
+    start_expire(md.clone(), &opts);
+
+    let idb = InfluxCtx::new(&opts, md.clone());
+    idb.start_db_send();
 
     // Enter CoAP server loop
-    let srv = coapserver::MyCoapServer::new(md, &opts);
+    let srv = MyCoapServer::new(md, &opts);
     srv.run()?;
 
     // Normally never reached

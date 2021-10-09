@@ -57,13 +57,6 @@ impl fmt::Debug for UrlMap {
 
 #[allow(dead_code)]
 impl UrlMap {
-    fn resp_notfound(_md: &sensordata::MyData, payload: Option<&str>) -> UrlResponse {
-        trace!(
-            "UrlHandler::resp_notfound: payload={}",
-            payload.unwrap_or("<none>")
-        );
-        UrlResponse::new(ResponseType::NotFound, "NOT FOUND")
-    }
     pub fn new() -> UrlMap {
         UrlMap::new_cap(8)
     }
@@ -110,6 +103,13 @@ impl UrlMap {
     }
     pub fn len(&self) -> usize {
         self.map.len()
+    }
+    fn resp_notfound(_md: &sensordata::MyData, payload: Option<&str>) -> UrlResponse {
+        trace!(
+            "UrlHandler::resp_notfound: payload={}",
+            payload.unwrap_or("<none>")
+        );
+        UrlResponse::new(ResponseType::NotFound, "NOT FOUND")
     }
 }
 // EOF

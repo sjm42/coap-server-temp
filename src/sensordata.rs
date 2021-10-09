@@ -19,6 +19,31 @@ pub struct MyData {
     avgs_t: RwLock<Vec<u64>>,
 }
 
+pub fn start_expire(md: Arc<MyData>, opts: &startup::OptsCommon) {
+    let interval = opts.expire_interval;
+    thread::spawn(move || {
+        run_expire(md, interval);
+    });
+}
+
+fn run_expire(md: Arc<MyData>, interval: u64) {
+    loop {
+        let md_e = md.clone();
+        let jh = thread::spawn(move || {
+            md_e.expire(interval);
+        });
+        debug!(
+            "Sensor data expire thread started as id {:?}",
+            jh.thread().id()
+        );
+        // We are blocking in join() until child thread exits -- should never happen.
+        let res = jh.join();
+        error!("Expire thread exited, reason: {:?}", res);
+        thread::sleep(time::Duration::new(10, 0));
+        error!("Restarting expire thread...");
+    }
+}
+
 #[allow(dead_code)]
 impl MyData {
     pub fn new(opts: &startup::OptsCommon) -> Self {
@@ -26,31 +51,6 @@ impl MyData {
             sd: RwLock::new(SensorData::with_capacity(8)),
             out_sensor: RwLock::new(opts.out_sensor.clone()),
             avgs_t: RwLock::new([opts.avg_t_out, opts.avg_t_db].to_vec()),
-        }
-    }
-
-    pub fn start_expire(md: Arc<Self>, opts: &startup::OptsCommon) {
-        let interval = opts.expire_interval;
-        thread::spawn(move || {
-            Self::run_expire(md.clone(), interval);
-        });
-    }
-
-    fn run_expire(md: Arc<Self>, interval: u64) {
-        loop {
-            let md_e = md.clone();
-            let jh = thread::spawn(move || {
-                md_e.expire(interval);
-            });
-            debug!(
-                "Sensor data expire thread started as id {:?}",
-                jh.thread().id()
-            );
-            // We are blocking in join() until child thread exits -- should never happen.
-            let res = jh.join();
-            error!("Expire thread exited, reason: {:?}", res);
-            thread::sleep(time::Duration::new(10, 0));
-            error!("Restarting expire thread...");
         }
     }
 
