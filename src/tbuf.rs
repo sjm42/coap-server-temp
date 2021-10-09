@@ -78,7 +78,7 @@ pub struct Tbuf {
 #[allow(dead_code)]
 impl Tbuf {
     pub fn new(avgs_t: &[u64]) -> Tbuf {
-        Tbuf::new_cap(16, avgs_t)
+        Tbuf::new_cap(64, avgs_t)
     }
     pub fn new_cap(cap: usize, avgs_t: &[u64]) -> Tbuf {
         trace!("Tbuf::new_cap({}, {:?})", cap, avgs_t);
