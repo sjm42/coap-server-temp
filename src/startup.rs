@@ -17,9 +17,9 @@ pub struct OptsCommon {
     #[structopt(short = "s", long, default_value = "0000000000000000")]
     pub out_sensor: String,
     #[structopt(long, default_value = "300")]
-    pub avg_t_db: u64,
+    pub average_db_t: u64,
     #[structopt(long, default_value = "900")]
-    pub avg_t_out: u64,
+    pub average_out_t: u64,
     #[structopt(long, default_value = "60")]
     pub send_interval: i64,
     #[structopt(long, parse(from_os_str))]
@@ -59,9 +59,9 @@ pub fn expand_home(pathname: &mut String) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub fn start_pgm(c: &OptsCommon, desc: &str) {
+pub fn start_pgm(opts: &OptsCommon, desc: &str) {
     env_logger::Builder::new()
-        .filter_level(c.get_loglevel())
+        .filter_level(opts.get_loglevel())
         .format_timestamp_secs()
         .init();
     info!("Starting up {}...", desc);

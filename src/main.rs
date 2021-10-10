@@ -12,7 +12,7 @@ mod tbuf;
 mod url;
 
 use coapserver::MyCoapServer;
-use influxdb::InfluxCtx;
+use influxdb::InfluxSender;
 use sensordata::*;
 use startup::*;
 
@@ -22,15 +22,15 @@ fn main() -> anyhow::Result<()> {
     opts.finish()?;
     debug!("Global config: {:?}", &opts);
 
-    let md = Arc::new(MyData::new(&opts));
-    start_expire(md.clone(), &opts);
+    let mydata = Arc::new(MyData::new(&opts));
+    start_expire(mydata.clone(), &opts);
 
-    let idb = InfluxCtx::new(&opts, md.clone());
-    idb.start_db_send();
+    let sender = InfluxSender::new(&opts, mydata.clone());
+    sender.start_db_send();
 
     // Enter CoAP server loop
-    let srv = MyCoapServer::new(md, &opts);
-    srv.run()?;
+    let server = MyCoapServer::new(&opts, mydata);
+    server.run()?;
 
     // Normally never reached
     Ok(())

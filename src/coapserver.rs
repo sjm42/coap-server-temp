@@ -1,8 +1,8 @@
 // coapserver.rs
 
-use super::sensordata;
-use super::startup;
-use super::url::*;
+use super::sensordata::MyData;
+use super::startup::OptsCommon;
+use super::url::{UrlMap, UrlResponse};
 
 use coap_lite::{CoapRequest, CoapResponse, RequestType as Method, ResponseType};
 use log::*;
@@ -12,17 +12,17 @@ use std::sync::Arc;
 use tokio::runtime::Runtime;
 
 pub struct MyCoapServer {
-    md: Arc<sensordata::MyData>,
+    mydata: Arc<MyData>,
     runtime: tokio::runtime::Runtime,
     addr: String,
     urlmap: UrlMap,
-    cnt: AtomicU64,
+    counter: AtomicU64,
 }
 
 impl MyCoapServer {
-    pub fn new(md: Arc<sensordata::MyData>, opts: &startup::OptsCommon) -> Self {
+    pub fn new(opts: &OptsCommon, mydata: Arc<MyData>) -> Self {
         MyCoapServer {
-            md,
+            mydata,
             runtime: Runtime::new().unwrap(),
             addr: opts.listen.clone(),
             urlmap: UrlMap::new()
@@ -31,7 +31,7 @@ impl MyCoapServer {
                 .with_path("avg_out", Self::resp_avg_out)
                 .with_path("set_outsensor", Self::resp_set_outsensor)
                 .with_path("dump", Self::resp_dump),
-            cnt: AtomicU64::new(0),
+            counter: AtomicU64::new(0),
         }
     }
 
@@ -49,7 +49,7 @@ impl MyCoapServer {
     }
 
     async fn handle_coap_req(&self, request: CoapRequest<SocketAddr>) -> Option<CoapResponse> {
-        let i = self.cnt.fetch_add(1, Ordering::Relaxed);
+        let i = self.counter.fetch_add(1, Ordering::Relaxed);
         let req_path = &request.get_path();
         let ip_tmp;
         let ip_str;
@@ -73,7 +73,7 @@ impl MyCoapServer {
             Method::Get => {
                 // Call the URL handler without payload
                 let h = self.urlmap.get_handler(req_path);
-                ret = h(&*self.md, None);
+                ret = h(&*self.mydata, None);
                 // ret = self.urlmap.get_handler(req_path)(&mut *self.md, None);
                 resp_code = ret.code();
                 resp_data = ret.data();
@@ -83,7 +83,7 @@ impl MyCoapServer {
                 let payload = &String::from_utf8_lossy(&request.message.payload);
                 info!("<-- payload: {}", payload);
                 // Call the URL handler with payload
-                ret = self.urlmap.get_handler(req_path)(&*self.md, Some(payload));
+                ret = self.urlmap.get_handler(req_path)(&*self.mydata, Some(payload));
                 resp_code = ret.code();
                 resp_data = ret.data();
             }
@@ -106,11 +106,11 @@ impl MyCoapServer {
         }
     }
 
-    fn resp_list_sensors(md: &sensordata::MyData, _payload: Option<&str>) -> UrlResponse {
-        UrlResponse::new(ResponseType::Content, md.sensors_list().join(" "))
+    fn resp_list_sensors(mydata: &MyData, _payload: Option<&str>) -> UrlResponse {
+        UrlResponse::new(ResponseType::Content, mydata.sensors_list().join(" "))
     }
 
-    fn resp_store_temp(md: &sensordata::MyData, payload: Option<&str>) -> UrlResponse {
+    fn resp_store_temp(mydata: &MyData, payload: Option<&str>) -> UrlResponse {
         match payload {
             None => UrlResponse::new(ResponseType::BadRequest, "NO DATA"),
             Some(data) => {
@@ -121,7 +121,7 @@ impl MyCoapServer {
                 match indata[1].parse::<f32>() {
                     Err(_) => UrlResponse::new(ResponseType::BadRequest, "INVALID DATA"),
                     Ok(temp) => {
-                        md.add(indata[0], temp);
+                        mydata.add(indata[0], temp);
                         UrlResponse::new(ResponseType::Content, "OK")
                     }
                 }
@@ -129,25 +129,25 @@ impl MyCoapServer {
         }
     }
 
-    fn resp_avg_out(md: &sensordata::MyData, _payload: Option<&str>) -> UrlResponse {
-        match md.get_avg_out() {
+    fn resp_avg_out(mydata: &MyData, _payload: Option<&str>) -> UrlResponse {
+        match mydata.average_out() {
             None => UrlResponse::new(ResponseType::ServiceUnavailable, "NO DATA"),
             Some(avg) => UrlResponse::new(ResponseType::Content, format!("{:.2}", avg)),
         }
     }
 
-    fn resp_set_outsensor(md: &sensordata::MyData, payload: Option<&str>) -> UrlResponse {
+    fn resp_set_outsensor(mydata: &MyData, payload: Option<&str>) -> UrlResponse {
         match payload {
             None => UrlResponse::new(ResponseType::BadRequest, "NO DATA"),
             Some(data) => {
-                md.set_outsensor(data);
+                mydata.set_outsensor(data);
                 UrlResponse::new(ResponseType::Content, "OK")
             }
         }
     }
 
-    fn resp_dump(md: &sensordata::MyData, _payload: Option<&str>) -> UrlResponse {
-        md.dump();
+    fn resp_dump(mydata: &MyData, _payload: Option<&str>) -> UrlResponse {
+        mydata.dump();
         UrlResponse::new(ResponseType::Content, "OK")
     }
 }

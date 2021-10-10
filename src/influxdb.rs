@@ -1,6 +1,6 @@
 // influxdb.rs
 
-use super::sensordata;
+use super::sensordata::MyData;
 use super::startup;
 
 use anyhow::anyhow;
@@ -10,8 +10,8 @@ use std::{ffi::OsString, io::Write, process::*, sync::Arc, thread, time};
 use tokio::runtime::Runtime;
 
 #[derive(Clone)]
-pub struct InfluxCtx {
-    md: Arc<sensordata::MyData>,
+pub struct InfluxSender {
+    mydata: Arc<MyData>,
     interval: i64,
     binary: Option<OsString>,
     url: String,
@@ -21,10 +21,10 @@ pub struct InfluxCtx {
     measurement: String,
 }
 
-impl InfluxCtx {
-    pub fn new(opts: &startup::OptsCommon, md: Arc<sensordata::MyData>) -> Self {
-        InfluxCtx {
-            md,
+impl InfluxSender {
+    pub fn new(opts: &startup::OptsCommon, mydata: Arc<MyData>) -> Self {
+        InfluxSender {
+            mydata,
             interval: opts.send_interval,
             binary: opts.influx_binary.clone(),
             url: opts.db_url.clone(),
@@ -64,41 +64,41 @@ impl InfluxCtx {
 
     // Use the Rust native influxdb client library
     fn db_send_internal(self) {
-        let rt = Runtime::new().unwrap();
+        let runtime = Runtime::new().unwrap();
         loop {
             let waitsec = self.interval - (Utc::now().timestamp() % self.interval);
             // wait until next interval start
             thread::sleep(time::Duration::new(waitsec as u64, 0));
 
             trace!("influxdb::db_send_internal() active");
-            let ts = Utc::now().timestamp();
-            let ts_i = ts - (ts % self.interval);
+            let timestamp = Utc::now().timestamp();
+            let timestamp_i = timestamp - (timestamp % self.interval);
 
-            let mut pts = Vec::with_capacity(8);
-            for datapoint in self.md.sensors_db() {
-                pts.push(
+            let mut points = Vec::with_capacity(8);
+            for datapoint in self.mydata.averages_db() {
+                points.push(
                     influxdb_client::Point::new(&self.measurement)
                         .tag("sensor", datapoint.0.as_str())
                         .field("value", datapoint.1)
-                        .timestamp(ts_i),
+                        .timestamp(timestamp_i),
                 );
             }
-            if !pts.is_empty() {
+            if !points.is_empty() {
                 let c = influxdb_client::Client::new(&self.url, &self.token)
                     .with_org(&self.org)
                     .with_bucket(&self.bucket)
                     .with_precision(influxdb_client::Precision::S);
 
-                rt.spawn(async move {
+                runtime.spawn(async move {
                     // ownership of pts and c are moved into here
                     // hence, new ones must be created each time before calling this
-                    debug!("influxdb data: {:?}", &pts);
+                    debug!("influxdb data: {:?}", &points);
                     match c
-                        .insert_points(&pts, influxdb_client::TimestampOptions::FromPoint)
+                        .insert_points(&points, influxdb_client::TimestampOptions::FromPoint)
                         .await
                     {
                         Ok(_) => {
-                            info!("****** InfluxDB: inserted {} points", pts.len());
+                            info!("****** InfluxDB: inserted {} points", points.len());
                         }
                         Err(e) => {
                             error!("InfluxDB client error: {:?}", e);
@@ -110,7 +110,7 @@ impl InfluxCtx {
     }
 
     fn db_send_external(self) {
-        let mut data_points = Vec::with_capacity(8);
+        let mut points = Vec::with_capacity(8);
         loop {
             let waitsec = self.interval - (Utc::now().timestamp() % self.interval);
             // wait until next interval start
@@ -120,17 +120,17 @@ impl InfluxCtx {
             let ts = Utc::now().timestamp();
             let ts_i = ts - (ts % self.interval);
 
-            data_points.clear();
-            for datapoint in self.md.sensors_db() {
-                data_points.push(format!(
+            points.clear();
+            for datapoint in self.mydata.averages_db() {
+                points.push(format!(
                     "{},sensor={} value={:.2} {}\n",
                     self.measurement, &datapoint.0, datapoint.1, ts_i
                 ));
             }
-            if !data_points.is_empty() {
-                match self.influx_run_cmd(&data_points) {
+            if !points.is_empty() {
+                match self.influx_run_cmd(&points) {
                     Ok(_) => {
-                        info!("****** InfluxDB: inserted {} points", data_points.len());
+                        info!("****** InfluxDB: inserted {} points", points.len());
                     }
                     Err(e) => {
                         error!("InfluxDB client error: {:?}", e);
@@ -140,8 +140,8 @@ impl InfluxCtx {
         }
     }
 
-    fn influx_run_cmd(&self, data_points: &[String]) -> anyhow::Result<()> {
-        let line_data = data_points.join("\n");
+    fn influx_run_cmd(&self, points: &[String]) -> anyhow::Result<()> {
+        let line_data = points.join("\n");
         let iargs = [
             "write",
             "--precision",
@@ -157,26 +157,29 @@ impl InfluxCtx {
         ];
         trace!("Running {:?} {}", &self.binary, iargs.join(" "));
         debug!("data:\n{}", line_data);
-        let mut p = Command::new(self.binary.as_ref().unwrap())
+        let mut process = Command::new(self.binary.as_ref().unwrap())
             .args(&iargs)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
             .unwrap();
-        let p_in = p.stdin.as_mut().unwrap();
-        p_in.write_all(line_data.as_bytes()).unwrap();
-        let out = p.wait_with_output().unwrap();
-        if out.status.success() && out.stdout.is_empty() && out.stderr.is_empty() {
+        let pipe_in = process.stdin.as_mut().unwrap();
+        pipe_in.write_all(line_data.as_bytes()).unwrap();
+        let process_output = process.wait_with_output().unwrap();
+        if process_output.status.success()
+            && process_output.stdout.is_empty()
+            && process_output.stderr.is_empty()
+        {
             Ok(())
         } else {
             error!(
                 "influx command failed, exit status {}\nstderr:\n{}\nstdout:\n{}\n",
-                out.status.code().unwrap(),
-                String::from_utf8_lossy(&out.stderr),
-                String::from_utf8_lossy(&out.stdout)
+                process_output.status.code().unwrap(),
+                String::from_utf8_lossy(&process_output.stderr),
+                String::from_utf8_lossy(&process_output.stdout)
             );
-            Err(anyhow!(out.status))
+            Err(anyhow!(process_output.status))
         }
     }
 }
