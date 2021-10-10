@@ -52,13 +52,6 @@ impl OptsCommon {
     }
 }
 
-#[allow(dead_code)]
-pub fn expand_home(pathname: &mut String) -> anyhow::Result<()> {
-    let home = env::var("HOME")?;
-    *pathname = pathname.as_str().replace("$HOME", &home);
-    Ok(())
-}
-
 pub fn start_pgm(opts: &OptsCommon, desc: &str) {
     env_logger::Builder::new()
         .filter_level(opts.get_loglevel())
