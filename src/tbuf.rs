@@ -83,32 +83,27 @@ pub struct Tbuf {
 
 #[allow(dead_code)]
 impl Tbuf {
-    pub fn new(avgs_t: &[u64]) -> Tbuf {
-        Tbuf::with_capacity(64, avgs_t)
+    pub fn new(averages_t: &[u64]) -> Tbuf {
+        Tbuf::with_capacity(64, averages_t)
     }
     pub fn with_capacity(capacity: usize, averages_t: &[u64]) -> Tbuf {
         trace!("Tbuf::new_cap({}, {:?})", capacity, averages_t);
-        let mut tbuf = Tbuf {
-            averages_t: averages_t.to_vec(),
-            averages: Vec::with_capacity(averages_t.len()),
+        let tbuf = Tbuf {
+            averages_t: Vec::new(),
+            averages: Vec::new(),
             buf: Vec::with_capacity(capacity),
-            buf_expire: *averages_t.iter().max().unwrap(),
+            buf_expire: 0,
         };
-        // Vector avgs is guaranteed to be of same length as avgs_t
-        // so we are filling it up here now.
-        for _a in averages_t.iter() {
-            tbuf.averages.push(f64::NAN);
-        }
-        tbuf
+        tbuf.with_averages(averages_t)
     }
-    pub fn with_averages(&mut self, averages_t: &[u64]) -> &mut Self {
+    pub fn with_averages(mut self, averages_t: &[u64]) -> Self {
         trace!("Tbuf::with_avgs({:?})", averages_t);
-        self.buf_expire = *averages_t.iter().max().unwrap();
         self.averages_t = averages_t.to_vec();
         self.averages = Vec::with_capacity(averages_t.len());
-        for _a in averages_t.iter() {
+        for _a in averages_t {
             self.averages.push(f64::NAN);
         }
+        self.buf_expire = *averages_t.iter().max().unwrap();
         self.update_averages();
         self
     }

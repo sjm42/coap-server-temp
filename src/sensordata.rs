@@ -55,37 +55,36 @@ impl MyData {
     }
 
     fn expire(&self, interval: u64) {
-        let wait_sec = time::Duration::new(interval, 0);
+        let wait_duration = time::Duration::new(interval, 0);
         loop {
-            thread::sleep(wait_sec);
+            thread::sleep(wait_duration);
             trace!("sensordata_expire active");
-            {
-                for (sensorid, tbuf) in self.sensor_data.write().iter_mut() {
-                    let n_expired = tbuf.expire();
-                    if n_expired > 0 {
-                        tbuf.update_averages();
-                        info!(
-                            "****** Sensor {} expired {} point{}, {} left.",
-                            sensorid,
-                            n_expired,
-                            if n_expired > 1 { "s" } else { "" },
-                            tbuf.len()
-                        );
-                    }
+
+            for (sensorid, tbuf) in self.sensor_data.write().iter_mut() {
+                let n_expired = tbuf.expire();
+                if n_expired > 0 {
+                    tbuf.update_averages();
+                    info!(
+                        "****** Sensor {} expired {} point{}, {} left.",
+                        sensorid,
+                        n_expired,
+                        if n_expired > 1 { "s" } else { "" },
+                        tbuf.len()
+                    );
                 }
             }
         }
     }
 
-    pub fn add<S: AsRef<str>>(&self, sensorid: S, temp: f32) {
-        let mut sd = self.sensor_data.write();
-        if !sd.contains_key(sensorid.as_ref()) {
-            sd.insert(
-                sensorid.as_ref().into(),
+    pub fn add<S: AsRef<str>>(&self, sensor_id: S, temp: f32) {
+        let mut sensor_data = self.sensor_data.write();
+        if !sensor_data.contains_key(sensor_id.as_ref()) {
+            sensor_data.insert(
+                sensor_id.as_ref().into(),
                 Tbuf::new(&*self.averages_t.read()),
             );
         }
-        let tbuf = sd.get_mut(sensorid.as_ref()).unwrap();
+        let tbuf = sensor_data.get_mut(sensor_id.as_ref()).unwrap();
         tbuf.add(Tdata::new(temp));
     }
 
@@ -97,23 +96,22 @@ impl MyData {
         self.averages_t.read()[1]
     }
 
-    pub fn average_get<S: AsRef<str>>(&self, sensorid: S, t: u64) -> Option<f64> {
-        let sd = self.sensor_data.read();
-        if !sd.contains_key(sensorid.as_ref()) {
+    pub fn average_get<S: AsRef<str>>(&self, sensor_id: S, t: u64) -> Option<f64> {
+        let sensor_data = self.sensor_data.read();
+        if !sensor_data.contains_key(sensor_id.as_ref()) {
             return None;
         }
-        sd.get(sensorid.as_ref()).unwrap().average(t)
+        sensor_data.get(sensor_id.as_ref()).unwrap().average(t)
     }
 
     pub fn average_out(&self) -> Option<f64> {
-        let avg_t_out = self.average_out_t();
-        let outsensor = self.out_sensor.read();
-        self.average_get(&*outsensor, avg_t_out)
+        let out_sensor = self.out_sensor.read();
+        self.average_get(&*out_sensor, self.average_out_t())
     }
 
     pub fn sensors_list(&self) -> Vec<String> {
         // Return Vec of Strings listing all the sensor ids we have
-        self.sensor_data.read().keys().cloned().collect::<Vec<_>>()
+        self.sensor_data.read().keys().cloned().collect()
     }
 
     pub fn averages_db(&self) -> Vec<(String, f64)> {
@@ -123,15 +121,15 @@ impl MyData {
             .iter()
             .filter(|(_k, v)| v.len() > 3)
             .map(|(k, v)| (k.clone(), v.average(avg_t_db).unwrap()))
-            .collect::<Vec<(String, f64)>>()
+            .collect()
     }
 
     pub fn dump(&self) {
         // Just dump our internal sensor data into log
-        let sd = self.sensor_data.read();
-        debug!("dump: Have {} sensors.", sd.len());
-        for (sensorid, tbuf) in sd.iter() {
-            debug!("dump: Sensor {} tbuf={:?}", sensorid, tbuf);
+        let sensor_data = self.sensor_data.read();
+        debug!("dump: Have {} sensors.", sensor_data.len());
+        for (sensor_id, tbuf) in sensor_data.iter() {
+            debug!("dump: Sensor {} tbuf={:?}", sensor_id, tbuf);
         }
     }
 

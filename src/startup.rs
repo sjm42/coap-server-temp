@@ -41,7 +41,7 @@ impl OptsCommon {
     pub fn finish(&mut self) -> anyhow::Result<()> {
         Ok(())
     }
-    fn get_loglevel(&self) -> LevelFilter {
+    pub fn get_loglevel(&self) -> LevelFilter {
         if self.trace {
             LevelFilter::Trace
         } else if self.debug {

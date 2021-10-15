@@ -13,7 +13,7 @@ mod url;
 
 use coapserver::MyCoapServer;
 use influxdb::InfluxSender;
-use sensordata::*;
+use sensordata::{start_expire, MyData};
 use startup::*;
 
 fn main() -> anyhow::Result<()> {
@@ -29,7 +29,7 @@ fn main() -> anyhow::Result<()> {
     sender.start_db_send();
 
     // Enter CoAP server loop
-    let server = MyCoapServer::new(&opts, mydata);
+    let server = MyCoapServer::new(&opts, mydata)?;
     server.run()?;
 
     // Normally never reached

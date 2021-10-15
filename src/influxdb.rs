@@ -7,7 +7,7 @@ use anyhow::anyhow;
 use chrono::*;
 use log::*;
 use std::{ffi::OsString, io::Write, process::*, sync::Arc, thread, time};
-use tokio::runtime::Runtime;
+use tokio::sync::mpsc;
 
 #[derive(Clone)]
 pub struct InfluxSender {
@@ -44,11 +44,11 @@ impl InfluxSender {
 
     fn run_db_send(self) {
         loop {
-            let ctx_i = self.clone();
+            let sender_i = self.clone();
 
-            let jh = thread::spawn(move || match ctx_i.binary {
-                Some(ref _bin) => ctx_i.db_send_external(),
-                None => ctx_i.db_send_internal(),
+            let jh = thread::spawn(move || match sender_i.binary {
+                Some(ref _bin) => sender_i.db_send_external().unwrap(),
+                None => sender_i.db_send_internal().unwrap(),
             });
             debug!(
                 "InfluxDB data push thread started as id {:?}",
@@ -63,8 +63,28 @@ impl InfluxSender {
     }
 
     // Use the Rust native influxdb client library
-    fn db_send_internal(self) {
-        let runtime = Runtime::new().unwrap();
+    fn db_send_internal(self) -> anyhow::Result<()> {
+        let runtime = tokio::runtime::Runtime::new()?;
+        let (chan_tx, mut chan_rx) = mpsc::channel::<Vec<influxdb_client::Point>>(10);
+        let influx_client = influxdb_client::Client::new(&self.url, &self.token)
+            .with_org(&self.org)
+            .with_bucket(&self.bucket)
+            .with_precision(influxdb_client::Precision::S);
+
+        runtime.spawn(async move {
+            while let Some(points) = chan_rx.recv().await {
+                debug!("influxdb data: {:?}", &points);
+                if let Err(e) = influx_client
+                    .insert_points(&points, influxdb_client::TimestampOptions::FromPoint)
+                    .await
+                {
+                    error!("InfluxDB client error: {:?}", e);
+                    break; // bail out, client is broken
+                }
+                info!("****** InfluxDB: inserted {} points", points.len());
+            }
+        });
+
         loop {
             let waitsec = self.interval - (Utc::now().timestamp() % self.interval);
             // wait until next interval start
@@ -84,32 +104,12 @@ impl InfluxSender {
                 );
             }
             if !points.is_empty() {
-                let c = influxdb_client::Client::new(&self.url, &self.token)
-                    .with_org(&self.org)
-                    .with_bucket(&self.bucket)
-                    .with_precision(influxdb_client::Precision::S);
-
-                runtime.spawn(async move {
-                    // ownership of pts and c are moved into here
-                    // hence, new ones must be created each time before calling this
-                    debug!("influxdb data: {:?}", &points);
-                    match c
-                        .insert_points(&points, influxdb_client::TimestampOptions::FromPoint)
-                        .await
-                    {
-                        Ok(_) => {
-                            info!("****** InfluxDB: inserted {} points", points.len());
-                        }
-                        Err(e) => {
-                            error!("InfluxDB client error: {:?}", e);
-                        }
-                    }
-                });
+                runtime.block_on(chan_tx.send(points))?;
             }
         }
     }
 
-    fn db_send_external(self) {
+    fn db_send_external(self) -> anyhow::Result<()> {
         let mut points = Vec::with_capacity(8);
         loop {
             let waitsec = self.interval - (Utc::now().timestamp() % self.interval);

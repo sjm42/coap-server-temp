@@ -1,8 +1,7 @@
-// utils/url.rs
+// url.rs
 
 pub use coap_lite::ResponseType;
 
-use log::*;
 use std::fmt;
 use std::fmt::{Debug, Display};
 use std::{collections::HashMap, hash::Hash};
@@ -10,15 +9,14 @@ use std::{collections::HashMap, hash::Hash};
 use crate::sensordata;
 
 #[derive(Debug)]
-pub struct UrlResponse {
+pub struct MyResponse {
     code: ResponseType,
     data: String,
 }
 
-#[allow(dead_code)]
-impl UrlResponse {
-    pub fn new<T: Into<String>>(code: ResponseType, data: T) -> UrlResponse {
-        UrlResponse {
+impl MyResponse {
+    pub fn new<T: Into<String>>(code: ResponseType, data: T) -> MyResponse {
+        MyResponse {
             code,
             data: data.into(),
         }
@@ -31,7 +29,7 @@ impl UrlResponse {
     }
 }
 
-pub type UrlHandler = fn(&sensordata::MyData, Option<&str>) -> UrlResponse;
+pub type UrlHandler = fn(&sensordata::MyData, Option<&str>) -> MyResponse;
 
 pub struct UrlMap {
     map: HashMap<String, UrlHandler>,
@@ -61,7 +59,6 @@ impl UrlMap {
         UrlMap::new_cap(8)
     }
     pub fn new_cap(cap: usize) -> UrlMap {
-        trace!("UrlMap::new_cap({})", cap);
         UrlMap {
             map: HashMap::with_capacity(cap),
             default: Self::resp_notfound,
@@ -75,12 +72,10 @@ impl UrlMap {
         self
     }
     pub fn clear(&mut self) -> &mut Self {
-        trace!("UrlMap::clear()");
         self.map.clear();
         self.set_default(Self::resp_notfound)
     }
     pub fn set_default(&mut self, handler: UrlHandler) -> &mut Self {
-        trace!("UrlMap::set_default()");
         self.default = handler;
         self
     }
@@ -88,7 +83,6 @@ impl UrlMap {
     where
         S: Display + Into<String>,
     {
-        trace!("UrlMap::add_path({})", urlpath);
         self.map.insert(urlpath.into(), handler);
         self
     }
@@ -104,12 +98,8 @@ impl UrlMap {
     pub fn len(&self) -> usize {
         self.map.len()
     }
-    fn resp_notfound(_md: &sensordata::MyData, payload: Option<&str>) -> UrlResponse {
-        trace!(
-            "UrlHandler::resp_notfound: payload={}",
-            payload.unwrap_or("<none>")
-        );
-        UrlResponse::new(ResponseType::NotFound, "NOT FOUND")
+    fn resp_notfound(_md: &sensordata::MyData, _payload: Option<&str>) -> MyResponse {
+        MyResponse::new(ResponseType::NotFound, "NOT FOUND")
     }
 }
 // EOF
