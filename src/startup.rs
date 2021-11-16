@@ -16,11 +16,11 @@ pub struct OptsCommon {
     pub listen: String,
     #[structopt(short = "s", long, default_value = "0000000000000000")]
     pub out_sensor: String,
-    #[structopt(long, default_value = "300")]
+    #[structopt(long, default_value = "900")]
     pub average_db_t: u64,
     #[structopt(long, default_value = "900")]
     pub average_out_t: u64,
-    #[structopt(long, default_value = "60")]
+    #[structopt(long, default_value = "300")]
     pub send_interval: i64,
     #[structopt(long, parse(from_os_str))]
     pub influx_binary: Option<OsString>,
