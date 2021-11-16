@@ -119,7 +119,7 @@ impl MyData {
         self.sensor_data
             .read()
             .iter()
-            .filter(|(_k, v)| v.len() > 3)
+            .filter(|(_k, v)| v.len() > 1)
             .map(|(k, v)| (k.clone(), v.average(avg_t_db).unwrap()))
             .collect()
     }
