@@ -130,7 +130,9 @@ impl Tbuf {
             .checked_sub(Duration::new(self.buf_expire, 0))
             .unwrap();
         let mut n_expired = 0;
-        while !self.buf.is_empty() {
+
+        // always leave one value
+        while self.buf.len() > 1 {
             if self.buf[0].timestamp < too_old {
                 n_expired += 1;
                 let _exp_data = self.buf.remove(0);
