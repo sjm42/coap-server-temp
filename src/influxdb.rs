@@ -66,14 +66,15 @@ impl InfluxSender {
     fn db_send_internal(self) -> anyhow::Result<()> {
         let runtime = tokio::runtime::Runtime::new()?;
         let (chan_tx, mut chan_rx) = mpsc::channel::<Vec<influxdb_client::Point>>(10);
-        let influx_client = influxdb_client::Client::new(&self.url, &self.token)
-            .with_org(&self.org)
-            .with_bucket(&self.bucket)
-            .with_precision(influxdb_client::Precision::S);
 
         runtime.spawn(async move {
             while let Some(points) = chan_rx.recv().await {
                 debug!("influxdb data: {:?}", &points);
+                let influx_client = influxdb_client::Client::new(&self.url, &self.token)
+                    .with_org(&self.org)
+                    .with_bucket(&self.bucket)
+                    .with_precision(influxdb_client::Precision::S);
+
                 if let Err(e) = influx_client
                     .insert_points(&points, influxdb_client::TimestampOptions::FromPoint)
                     .await
