@@ -86,36 +86,34 @@ impl Tbuf {
     pub fn new(averages_t: &[u64]) -> Tbuf {
         Tbuf::with_capacity(64, averages_t)
     }
+
     pub fn with_capacity(capacity: usize, averages_t: &[u64]) -> Tbuf {
         trace!("Tbuf::new_cap({}, {:?})", capacity, averages_t);
-        let tbuf = Tbuf {
-            averages_t: Vec::new(),
-            averages: Vec::new(),
+        let mut tbuf = Tbuf {
+            averages_t: averages_t.to_vec(),
+            averages: Vec::with_capacity(averages_t.len()),
             buf: Vec::with_capacity(capacity),
             buf_expire: 0,
         };
-        tbuf.with_averages(averages_t)
-    }
-    pub fn with_averages(mut self, averages_t: &[u64]) -> Self {
-        trace!("Tbuf::with_avgs({:?})", averages_t);
-        self.averages_t = averages_t.to_vec();
-        self.averages = Vec::with_capacity(averages_t.len());
         for _a in averages_t {
-            self.averages.push(f64::NAN);
+            tbuf.averages.push(0.0);
         }
-        self.buf_expire = *averages_t.iter().max().unwrap();
-        self.update_averages();
-        self
+        tbuf.buf_expire = *averages_t.iter().max().unwrap();
+        tbuf.update_averages();
+        tbuf
     }
+
     pub fn add(&mut self, data: Tdata) -> &mut Self {
         trace!("Tbuf::add({:?})", data);
         self.buf.push(data);
         self.update_averages();
         self
     }
+
     pub fn len(&self) -> usize {
         self.buf.len()
     }
+
     pub fn average(&self, time_sec: u64) -> Option<f64> {
         for i in 0..self.averages_t.len() {
             if time_sec == self.averages_t[i] {
@@ -124,6 +122,7 @@ impl Tbuf {
         }
         None
     }
+
     pub fn expire(&mut self) -> usize {
         trace!("Tbuf::expire()");
         let too_old = SystemTime::now()
@@ -146,14 +145,15 @@ impl Tbuf {
         // trace!("(tbuf expire)Tbuf len: {}", self.buf.len());
         n_expired
     }
+
     pub fn update_averages(&mut self) -> &mut Self {
         trace!("Tbuf::update_avgs()");
         let n_avgs = self.averages_t.len();
-        // is it empty?
+
         if self.buf.is_empty() {
-            for i in 0..n_avgs {
-                self.averages[i] = f64::NAN;
-            }
+            // do nothing!
+            // the old averages will be kept on purpose,
+            //  and this is a bit ugly.
             return self;
         }
 
