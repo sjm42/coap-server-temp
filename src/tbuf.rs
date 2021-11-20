@@ -96,7 +96,7 @@ impl Tbuf {
             buf_expire: 0,
         };
         for _a in averages_t {
-            tbuf.averages.push(0.0);
+            tbuf.averages.push(f64::NAN);
         }
         tbuf.buf_expire = *averages_t.iter().max().unwrap();
         tbuf.update_averages();
@@ -160,27 +160,36 @@ impl Tbuf {
         let now = SystemTime::now();
         let mut sums = Vec::with_capacity(n_avgs);
         let mut sizes = Vec::with_capacity(n_avgs);
-        let mut too_old = Vec::with_capacity(n_avgs);
+        let mut age_threshold = Vec::with_capacity(n_avgs);
         for i in 0..n_avgs {
             sums.push(0.0f64);
             sizes.push(0u64);
-            too_old.push(
+            age_threshold.push(
                 now.checked_sub(Duration::new(self.averages_t[i], 0))
                     .unwrap(),
             );
         }
+
         for buf_i in 0..self.buf.len() {
             let data = self.buf[buf_i].data;
             for avg_i in 0..n_avgs {
-                if self.buf[buf_i].timestamp > too_old[avg_i] {
+                if self.buf[buf_i].timestamp > age_threshold[avg_i] {
                     sizes[avg_i] += 1;
                     sums[avg_i] += data;
                 }
             }
         }
+
         for avg_i in 0..n_avgs {
             self.averages[avg_i] = match sizes[avg_i] {
-                0 => f64::NAN,
+                0 => {
+                    if self.buf.len() == 1 {
+                        // special: if there is only one value, use that and no more questions asked
+                        self.buf[0].data
+                    } else {
+                        f64::NAN
+                    }
+                }
                 sz => sums[avg_i] / sz as f64,
             };
         }
