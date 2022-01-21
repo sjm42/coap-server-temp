@@ -88,7 +88,6 @@ impl Tbuf {
     }
 
     pub fn with_capacity(capacity: usize, averages_t: &[u64]) -> Tbuf {
-        trace!("Tbuf::new_cap({}, {:?})", capacity, averages_t);
         let mut tbuf = Tbuf {
             averages_t: averages_t.to_vec(),
             averages: Vec::with_capacity(averages_t.len()),
@@ -104,7 +103,6 @@ impl Tbuf {
     }
 
     pub fn add(&mut self, data: Tdata) -> &mut Self {
-        trace!("Tbuf::add({:?})", data);
         self.buf.push(data);
         self.update_averages();
         self
@@ -124,7 +122,6 @@ impl Tbuf {
     }
 
     pub fn expire(&mut self) -> usize {
-        trace!("Tbuf::expire()");
         let too_old = SystemTime::now()
             .checked_sub(Duration::new(self.buf_expire, 0))
             .unwrap();
@@ -134,8 +131,8 @@ impl Tbuf {
         while self.buf.len() > 1 {
             if self.buf[0].timestamp < too_old {
                 n_expired += 1;
-                let _exp_data = self.buf.remove(0);
-                trace!("Tbuf expired tdata: {:?}", _exp_data);
+                let exp_data = self.buf.remove(0);
+                trace!("Tbuf expired tdata: {exp_data:?}");
             } else {
                 // The items are age ordered and thus we stop
                 // when the oldest non-expired item is found
@@ -147,7 +144,6 @@ impl Tbuf {
     }
 
     pub fn update_averages(&mut self) -> &mut Self {
-        trace!("Tbuf::update_avgs()");
         let n_avgs = self.averages_t.len();
 
         if self.buf.is_empty() {

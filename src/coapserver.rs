@@ -65,7 +65,7 @@ impl MyCoapServer {
             }
         }
         let method = *request.get_method();
-        info!("#{} {} {:?} /{}", i, ip_str, method, req_path);
+        info!("#{i} {ip_str} {method:?} /{req_path}");
 
         match method {
             Method::Get => {
@@ -84,7 +84,7 @@ impl MyCoapServer {
                 resp_data = ret.data();
             }
             _ => {
-                info!("--> Unsupported CoAP method {:?}", method);
+                info!("--> Unsupported CoAP method {method:?}");
                 resp_code = ResponseType::BadRequest;
                 resp_data = "INVALID METHOD";
             }

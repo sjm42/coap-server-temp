@@ -45,7 +45,7 @@ impl fmt::Debug for UrlMap {
                 &self
                     .map
                     .iter()
-                    .map(|(k, v)| format!("{}->{:p}", k, *v as *const ()))
+                    .map(|(k, v)| format!("{k}->{:p}", *v as *const ()))
                     .collect::<Vec<String>>()
                     .join(", "),
             )

@@ -20,7 +20,7 @@ fn main() -> anyhow::Result<()> {
     let mut opts = OptsCommon::from_args();
     start_pgm(&opts, "CoAP server");
     opts.finish()?;
-    debug!("Global config: {:?}", &opts);
+    debug!("Global config: {opts:?}");
 
     let mydata = Arc::new(MyData::new(&opts));
     start_expire(mydata.clone(), &opts);

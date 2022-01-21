@@ -38,7 +38,7 @@ fn run_expire(mydata: Arc<MyData>, interval: u64) {
         );
         // We are blocking in join() until child thread exits -- should never happen.
         let result = jh.join();
-        error!("Expire thread exited, reason: {:?}", result);
+        error!("Expire thread exited, reason: {result:?}");
         thread::sleep(time::Duration::new(10, 0));
         error!("Restarting expire thread...");
     }
@@ -65,9 +65,7 @@ impl MyData {
                 if n_expired > 0 {
                     tbuf.update_averages();
                     info!(
-                        "****** Sensor {} expired {} point{}, {} left.",
-                        sensorid,
-                        n_expired,
+                        "****** Sensor {sensorid} expired {n_expired} point{}, {} left.",
                         if n_expired > 1 { "s" } else { "" },
                         tbuf.len()
                     );
@@ -129,7 +127,7 @@ impl MyData {
         let sensor_data = self.sensor_data.read();
         debug!("dump: Have {} sensors.", sensor_data.len());
         for (sensor_id, tbuf) in sensor_data.iter() {
-            debug!("dump: Sensor {} tbuf={:?}", sensor_id, tbuf);
+            debug!("dump: Sensor {sensor_id} tbuf={tbuf:?}");
         }
     }
 

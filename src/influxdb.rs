@@ -56,7 +56,7 @@ impl InfluxSender {
             );
             // We are blocking in join() until child thread exits -- should never happen.
             let res = jh.join();
-            error!("InfluxDB thread exited! Reason: {:?}", res);
+            error!("InfluxDB thread exited! Reason: {res:?}");
             thread::sleep(time::Duration::new(10, 0));
             error!("Restarting InfluxDB thread...");
         }
@@ -69,7 +69,7 @@ impl InfluxSender {
 
         runtime.spawn(async move {
             while let Some(points) = chan_rx.recv().await {
-                debug!("influxdb data: {:?}", &points);
+                debug!("influxdb data: {points:?}");
                 let influx_client = influxdb_client::Client::new(&self.url, &self.token)
                     .with_org(&self.org)
                     .with_bucket(&self.bucket)
@@ -79,7 +79,7 @@ impl InfluxSender {
                     .insert_points(&points, influxdb_client::TimestampOptions::FromPoint)
                     .await
                 {
-                    error!("InfluxDB client error: {:?}", e);
+                    error!("InfluxDB client error: {e:?}");
                     break; // bail out, client is broken
                 }
                 info!("****** InfluxDB: inserted {} points", points.len());
@@ -91,7 +91,6 @@ impl InfluxSender {
             // wait until next interval start
             thread::sleep(time::Duration::new(waitsec as u64, 0));
 
-            trace!("influxdb::db_send_internal() active");
             let timestamp = Utc::now().timestamp();
             let timestamp_i = timestamp - (timestamp % self.interval);
 
@@ -117,15 +116,14 @@ impl InfluxSender {
             // wait until next interval start
             thread::sleep(time::Duration::new(waitsec as u64, 0));
 
-            trace!("influxdb::db_send_ext() active");
             let ts = Utc::now().timestamp();
             let ts_i = ts - (ts % self.interval);
 
             points.clear();
             for datapoint in self.mydata.averages_db() {
                 points.push(format!(
-                    "{},sensor={} value={:.2} {}\n",
-                    self.measurement, &datapoint.0, datapoint.1, ts_i
+                    "{},sensor={} value={:.2} {ts_i}\n",
+                    self.measurement, &datapoint.0, datapoint.1,
                 ));
             }
             if !points.is_empty() {
@@ -134,7 +132,7 @@ impl InfluxSender {
                         info!("****** InfluxDB: inserted {} points", points.len());
                     }
                     Err(e) => {
-                        error!("InfluxDB client error: {:?}", e);
+                        error!("InfluxDB client error: {e:?}");
                     }
                 }
             }
@@ -157,7 +155,7 @@ impl InfluxSender {
             &self.bucket,
         ];
         trace!("Running {:?} {}", &self.binary, iargs.join(" "));
-        debug!("data:\n{}", line_data);
+        debug!("data:\n{line_data}");
         let mut process = Command::new(self.binary.as_ref().unwrap())
             .args(&iargs)
             .stdin(Stdio::piped())
