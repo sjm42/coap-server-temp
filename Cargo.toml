@@ -7,19 +7,19 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "*"
-chrono = "*"
-coap = "*"
-coap-lite = "*"
-env_logger = "*"
-influxdb-client = "*"
-log = "*"
-parking_lot = "*"
-structopt = "*"
-tokio = "*"
+anyhow = "1"
+chrono = "0"
+coap = "0"
+coap-lite = "0.7.0"   # keep in sync with dependency
+env_logger = "0"
+influxdb-client = "0"
+log = "0"
+parking_lot = "0"
+structopt = "0"
+tokio = "1"
 
 [build-dependencies]
-build-data = "*"
+build-data = "0"
 
 [profile.release]
 lto = true
