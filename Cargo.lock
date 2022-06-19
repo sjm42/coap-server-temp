@@ -119,7 +119,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e06c3bc15fdf60267be42093e2277704d112ee5f659e4ffe8e4db54ef105b208"
 dependencies = [
  "bytes",
- "coap-lite 0.9.1",
+ "coap-lite",
  "futures",
  "log",
  "lru_time_cache",
@@ -132,12 +132,6 @@ dependencies = [
  "tokio-util 0.6.10",
  "url",
 ]
-
-[[package]]
-name = "coap-lite"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2911526fe9fc3bb90ff13ff52bd5454e93da0685ba8ed105f06bfc0e898fd950"
 
 [[package]]
 name = "coap-lite"
@@ -156,7 +150,7 @@ dependencies = [
  "build-data",
  "chrono",
  "coap",
- "coap-lite 0.7.0",
+ "coap-lite",
  "env_logger",
  "influxdb-client",
  "log",
