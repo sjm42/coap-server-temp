@@ -143,8 +143,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "coap-server-temp"
-version = "0.1.2"
+name = "coap-server"
+version = "0.1.3"
 dependencies = [
  "anyhow",
  "build-data",
