@@ -79,7 +79,7 @@ impl MyData {
         if !sensor_data.contains_key(sensor_id.as_ref()) {
             sensor_data.insert(
                 sensor_id.as_ref().into(),
-                Tbuf::new(&*self.averages_t.read()),
+                Tbuf::new(&self.averages_t.read()),
             );
         }
         let tbuf = sensor_data.get_mut(sensor_id.as_ref()).unwrap();
@@ -107,8 +107,8 @@ impl MyData {
         self.average_get(&*out_sensor, self.average_out_t())
     }
 
+    // Return Vec of Strings listing all the sensor ids we have
     pub fn sensors_list(&self) -> Vec<String> {
-        // Return Vec of Strings listing all the sensor ids we have
         self.sensor_data.read().keys().cloned().collect()
     }
 
@@ -122,8 +122,8 @@ impl MyData {
             .collect()
     }
 
+    // Just dump our internal sensor data into log
     pub fn dump(&self) {
-        // Just dump our internal sensor data into log
         let sensor_data = self.sensor_data.read();
         debug!("dump: Have {} sensors.", sensor_data.len());
         for (sensor_id, tbuf) in sensor_data.iter() {
@@ -131,8 +131,8 @@ impl MyData {
         }
     }
 
+    // Return our out_sensor id
     pub fn get_outsensor(&self) -> String {
-        // Return our out_sensor id as cloned/owned String
         self.out_sensor.read().clone()
     }
 

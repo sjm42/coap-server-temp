@@ -18,9 +18,10 @@ use startup::*;
 
 fn main() -> anyhow::Result<()> {
     let mut opts = OptsCommon::from_args();
-    start_pgm(&opts, "CoAP server");
     opts.finish()?;
     debug!("Global config: {opts:?}");
+
+    opts.start_pgm(env!("CARGO_BIN_NAME"));
 
     let mydata = Arc::new(MyData::new(&opts));
     start_expire(mydata.clone(), &opts);

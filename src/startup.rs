@@ -50,18 +50,20 @@ impl OptsCommon {
             LevelFilter::Info
         }
     }
-}
+    pub fn start_pgm(&self, name: &str) {
+        env_logger::Builder::new()
+            .filter_module(env!("CARGO_PKG_NAME"), self.get_loglevel())
+            .filter_module(name, self.get_loglevel())
+            .filter_level(self.get_loglevel())
+            .format_timestamp_secs()
+            .init();
+        info!("Starting up {name} v{}...", env!("CARGO_PKG_VERSION"));
 
-pub fn start_pgm(opts: &OptsCommon, desc: &str) {
-    env_logger::Builder::new()
-        .filter_level(opts.get_loglevel())
-        .format_timestamp_secs()
-        .init();
-    info!("Starting up {desc}...");
-    debug!("Git branch: {}", env!("GIT_BRANCH"));
-    debug!("Git commit: {}", env!("GIT_COMMIT"));
-    debug!("Source timestamp: {}", env!("SOURCE_TIMESTAMP"));
-    debug!("Compiler version: {}", env!("RUSTC_VERSION"));
+        debug!("Git branch: {}", env!("GIT_BRANCH"));
+        debug!("Git commit: {}", env!("GIT_COMMIT"));
+        debug!("Source timestamp: {}", env!("SOURCE_TIMESTAMP"));
+        debug!("Compiler version: {}", env!("RUSTC_VERSION"));
+    }
 }
 
 // EOF

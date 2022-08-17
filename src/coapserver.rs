@@ -26,11 +26,11 @@ impl MyCoapServer {
             runtime: Runtime::new()?,
             addr: opts.listen.clone(),
             urlmap: UrlMap::new()
-                .with_path("store_temp", Self::resp_store_temp)
-                .with_path("list_sensors", Self::resp_list_sensors)
                 .with_path("avg_out", Self::resp_avg_out)
+                .with_path("dump", Self::resp_dump)
+                .with_path("list_sensors", Self::resp_list_sensors)
                 .with_path("set_outsensor", Self::resp_set_outsensor)
-                .with_path("dump", Self::resp_dump),
+                .with_path("store_temp", Self::resp_store_temp),
             counter: AtomicU64::new(0),
         })
     }
@@ -70,16 +70,16 @@ impl MyCoapServer {
         match method {
             Method::Get => {
                 // Call the URL handler without payload
-                ret = self.urlmap.get_handler(req_path)(&*self.mydata, None);
+                ret = self.urlmap.get_handler(req_path)(&self.mydata, None);
                 resp_code = ret.code();
                 resp_data = ret.data();
             }
             Method::Post => {
                 // Let's do relaxed UTF-8 conversion.
                 let payload = &String::from_utf8_lossy(&request.message.payload);
-                info!("<-- payload: {}", payload);
+                info!("<-- payload: {payload}");
                 // Call the URL handler with payload
-                ret = self.urlmap.get_handler(req_path)(&*self.mydata, Some(payload));
+                ret = self.urlmap.get_handler(req_path)(&self.mydata, Some(payload));
                 resp_code = ret.code();
                 resp_data = ret.data();
             }
@@ -95,15 +95,37 @@ impl MyCoapServer {
             Some(mut message) => {
                 message.set_status(resp_code);
                 message.message.payload = resp_data.into();
-                debug!("--> {:?}", message);
+                debug!("--> {message:?}");
                 Some(message)
             }
             _ => None,
         }
     }
 
+    fn resp_avg_out(mydata: &MyData, _payload: Option<&str>) -> MyResponse {
+        match mydata.average_out() {
+            None => MyResponse::new(ResponseType::ServiceUnavailable, "NO DATA"),
+            Some(avg) => MyResponse::new(ResponseType::Content, format!("{avg:.2}")),
+        }
+    }
+
+    fn resp_dump(mydata: &MyData, _payload: Option<&str>) -> MyResponse {
+        mydata.dump();
+        MyResponse::new(ResponseType::Content, "SEE LOG")
+    }
+
     fn resp_list_sensors(mydata: &MyData, _payload: Option<&str>) -> MyResponse {
         MyResponse::new(ResponseType::Content, mydata.sensors_list().join(" "))
+    }
+
+    fn resp_set_outsensor(mydata: &MyData, payload: Option<&str>) -> MyResponse {
+        match payload {
+            None => MyResponse::new(ResponseType::BadRequest, "NO DATA"),
+            Some(data) => {
+                mydata.set_outsensor(data);
+                MyResponse::new(ResponseType::Content, "OK")
+            }
+        }
     }
 
     fn resp_store_temp(mydata: &MyData, payload: Option<&str>) -> MyResponse {
@@ -123,28 +145,6 @@ impl MyCoapServer {
                 }
             }
         }
-    }
-
-    fn resp_avg_out(mydata: &MyData, _payload: Option<&str>) -> MyResponse {
-        match mydata.average_out() {
-            None => MyResponse::new(ResponseType::ServiceUnavailable, "NO DATA"),
-            Some(avg) => MyResponse::new(ResponseType::Content, format!("{:.2}", avg)),
-        }
-    }
-
-    fn resp_set_outsensor(mydata: &MyData, payload: Option<&str>) -> MyResponse {
-        match payload {
-            None => MyResponse::new(ResponseType::BadRequest, "NO DATA"),
-            Some(data) => {
-                mydata.set_outsensor(data);
-                MyResponse::new(ResponseType::Content, "OK")
-            }
-        }
-    }
-
-    fn resp_dump(mydata: &MyData, _payload: Option<&str>) -> MyResponse {
-        mydata.dump();
-        MyResponse::new(ResponseType::Content, "SEE LOG")
     }
 }
 // EOF
