@@ -61,8 +61,9 @@ impl InfluxSender {
         }
     }
 
-    // Use the Rust native influxdb client library
+    // keep sending data into database
     fn db_send(self) -> anyhow::Result<()> {
+        // Use the native influxdb client library?
         let internal = self.binary.is_none();
 
         let mut runtime: Option<Runtime> = None;
