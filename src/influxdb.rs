@@ -80,26 +80,29 @@ impl InfluxSender {
             let token = self.token.clone();
             let org = self.org.clone();
             let bucket = self.bucket.clone();
-            runtime.as_ref().unwrap().spawn(async move {
-                while let Some(points) = rx.recv().await {
-                    debug!("influxdb data: {points:?}");
+            runtime
+                .as_ref()
+                .ok_or_else(|| anyhow::anyhow!("runtime gone"))?
+                .spawn(async move {
+                    while let Some(points) = rx.recv().await {
+                        debug!("influxdb data: {points:?}");
 
-                    // We are creating a new client each time -- once per minute, not a performance problem
-                    let influx_client = influxdb_client::Client::new(&url, &token)
-                        .with_org(&org)
-                        .with_bucket(&bucket)
-                        .with_precision(influxdb_client::Precision::S);
+                        // We are creating a new client each time -- once per minute, not a performance problem
+                        let influx_client = influxdb_client::Client::new(&url, &token)
+                            .with_org(&org)
+                            .with_bucket(&bucket)
+                            .with_precision(influxdb_client::Precision::S);
 
-                    match influx_client
-                        .insert_points(&points, influxdb_client::TimestampOptions::FromPoint)
-                        .await
-                    {
-                        Ok(_) => info!("****** InfluxDB: inserted {} points", points.len()),
-                        Err(e) => error!("InfluxDB client error: {e:?}"),
+                        match influx_client
+                            .insert_points(&points, influxdb_client::TimestampOptions::FromPoint)
+                            .await
+                        {
+                            Ok(_) => info!("****** InfluxDB: inserted {} points", points.len()),
+                            Err(e) => error!("InfluxDB client error: {e:?}"),
+                        }
+                        drop(influx_client);
                     }
-                    drop(influx_client);
-                }
-            });
+                });
         }
 
         loop {
@@ -134,8 +137,13 @@ impl InfluxSender {
                 if internal {
                     runtime
                         .as_ref()
-                        .unwrap()
-                        .block_on(chan_tx.as_ref().unwrap().send(points_i))?;
+                        .ok_or_else(|| anyhow::anyhow!("runtime gone"))?
+                        .block_on(
+                            chan_tx
+                                .as_ref()
+                                .ok_or_else(|| anyhow::anyhow!("chan_tx gone"))?
+                                .send(points_i),
+                        )?;
                 } else {
                     match self.influx_run_cmd(&points_e) {
                         Ok(_) => info!("****** InfluxDB: inserted {} points", points_e.len()),
@@ -165,17 +173,23 @@ impl InfluxSender {
         trace!("Running {:?} {}", &self.binary, iargs.join(" "));
         debug!("data:\n{line_data}");
 
-        let mut process = Command::new(self.binary.as_ref().unwrap())
-            .args(&iargs)
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .unwrap();
-        let pipe_in = process.stdin.as_mut().unwrap();
-        pipe_in.write_all(line_data.as_bytes()).unwrap();
+        let mut process = Command::new(
+            self.binary
+                .as_ref()
+                .ok_or_else(|| anyhow::anyhow!("binary gone"))?,
+        )
+        .args(iargs)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()?;
+        let pipe_in = process
+            .stdin
+            .as_mut()
+            .ok_or_else(|| anyhow::anyhow!("stdin gone"))?;
+        pipe_in.write_all(line_data.as_bytes())?;
 
-        let process_output = process.wait_with_output().unwrap();
+        let process_output = process.wait_with_output()?;
         if process_output.status.success()
             && process_output.stdout.is_empty()
             && process_output.stderr.is_empty()
@@ -184,7 +198,7 @@ impl InfluxSender {
         } else {
             error!(
                 "influx command failed, exit status {}\nstderr:\n{}\nstdout:\n{}\n",
-                process_output.status.code().unwrap(),
+                process_output.status.code().unwrap_or(0),
                 String::from_utf8_lossy(&process_output.stderr),
                 String::from_utf8_lossy(&process_output.stdout)
             );

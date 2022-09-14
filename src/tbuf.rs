@@ -97,7 +97,7 @@ impl Tbuf {
         for _a in averages_t {
             tbuf.averages.push(f64::NAN);
         }
-        tbuf.buf_expire = *averages_t.iter().max().unwrap();
+        tbuf.buf_expire = *averages_t.iter().max().unwrap_or(&0);
         tbuf.update_averages();
         tbuf
     }
@@ -124,7 +124,7 @@ impl Tbuf {
     pub fn expire(&mut self) -> usize {
         let too_old = SystemTime::now()
             .checked_sub(Duration::new(self.buf_expire, 0))
-            .unwrap();
+            .unwrap_or(SystemTime::UNIX_EPOCH);
         let mut n_expired = 0;
 
         // always leave one value
@@ -162,7 +162,7 @@ impl Tbuf {
             sizes.push(0u64);
             age_threshold.push(
                 now.checked_sub(Duration::new(self.averages_t[i], 0))
-                    .unwrap(),
+                    .unwrap_or(SystemTime::UNIX_EPOCH),
             );
         }
 

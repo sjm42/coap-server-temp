@@ -96,10 +96,10 @@ impl MyData {
 
     pub fn average_get<S: AsRef<str>>(&self, sensor_id: S, t: u64) -> Option<f64> {
         let sensor_data = self.sensor_data.read();
-        if !sensor_data.contains_key(sensor_id.as_ref()) {
-            return None;
+        match sensor_data.get(sensor_id.as_ref()) {
+            None => None,
+            Some(d) => d.average(t),
         }
-        sensor_data.get(sensor_id.as_ref()).unwrap().average(t)
     }
 
     pub fn average_out(&self) -> Option<f64> {
