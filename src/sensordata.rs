@@ -76,14 +76,21 @@ impl MyData {
 
     pub fn add<S: AsRef<str>>(&self, sensor_id: S, temp: f32) {
         let mut sensor_data = self.sensor_data.write();
+
         if !sensor_data.contains_key(sensor_id.as_ref()) {
             sensor_data.insert(
                 sensor_id.as_ref().into(),
                 Tbuf::new(&self.averages_t.read()),
             );
         }
-        let tbuf = sensor_data.get_mut(sensor_id.as_ref()).unwrap();
-        tbuf.add(Tdata::new(temp));
+        match sensor_data.get_mut(sensor_id.as_ref()) {
+            Some(tbuf) => {
+                tbuf.add(Tdata::new(temp));
+            }
+            None => {
+                error!("What? Tbuf is gone.");
+            }
+        }
     }
 
     pub fn average_out_t(&self) -> u64 {
@@ -118,7 +125,7 @@ impl MyData {
             .read()
             .iter()
             .filter(|(_k, v)| v.len() > 0)
-            .map(|(k, v)| (k.clone(), v.average(avg_t_db).unwrap()))
+            .map(|(k, v)| (k.clone(), v.average(avg_t_db).unwrap_or(0.0)))
             .collect()
     }
 

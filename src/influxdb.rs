@@ -45,9 +45,7 @@ impl InfluxSender {
     fn run_db_send(self) {
         loop {
             let sender_i = self.clone();
-
-            // inside a separate thread unwrap() is okay and we are still able to catch errors
-            let jh = thread::spawn(move || sender_i.db_send().unwrap());
+            let jh = thread::spawn(move || sender_i.db_send());
             info!(
                 "InfluxDB data push thread started as id {:?}",
                 jh.thread().id()
