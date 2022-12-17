@@ -1,25 +1,28 @@
 [package]
 name = "coap-server"
-version = "0.1.4"
+version = "0.1.5"
 authors = ["Sami J. Mäkinen <sjm@iki.fi>"]
 edition = "2021"
-
+resolver = "2"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
 
 [dependencies]
 anyhow = "1.0"
 chrono = "0.4"
 coap = "0.12"
-coap-lite = "0.9"       # keep in sync with dependency
-env_logger = "0.9"
+coap-lite = "0.9.1"     # keep in sync with dependency
+env_logger = "0.10"
 influxdb-client = "0.1"
 log = "0.4"
 parking_lot = "0.12"
 structopt = "0.3"
-tokio = "1.20"
+tokio = "1.23"
+
 
 [build-dependencies]
 build-data = "0.1"
+
 
 [profile.release]
 lto = true
