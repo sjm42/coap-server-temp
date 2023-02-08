@@ -1,6 +1,6 @@
 // sensordata.rs
 
-use super::startup;
+use super::config;
 use super::tbuf::{Tbuf, Tdata};
 
 use log::*;
@@ -19,7 +19,7 @@ pub struct MyData {
     averages_t: RwLock<Vec<u64>>,
 }
 
-pub fn start_expire(mydata: Arc<MyData>, opts: &startup::OptsCommon) {
+pub fn start_expire(mydata: Arc<MyData>, opts: &config::OptsCommon) {
     let interval = opts.expire_interval;
     thread::spawn(move || {
         run_expire(mydata, interval);
@@ -46,11 +46,11 @@ fn run_expire(mydata: Arc<MyData>, interval: u64) {
 
 #[allow(dead_code)]
 impl MyData {
-    pub fn new(opts: &startup::OptsCommon) -> Self {
+    pub fn new(opts: &config::OptsCommon) -> Self {
         MyData {
             sensor_data: RwLock::new(SensorData::with_capacity(8)),
             out_sensor: RwLock::new(opts.out_sensor.clone()),
-            averages_t: RwLock::new([opts.average_out_t, opts.average_db_t].to_vec()),
+            averages_t: RwLock::new(vec![opts.average_out_t, opts.average_db_t]),
         }
     }
 
@@ -109,9 +109,13 @@ impl MyData {
         }
     }
 
+    // out_sensor may have a comma-separated list of sensor ids
     pub fn average_out(&self) -> Option<f64> {
-        let out_sensor = self.out_sensor.read();
-        self.average_get(&*out_sensor, self.average_out_t())
+        let out_sensor = self.out_sensor.read().clone();
+        let out_t = self.average_out_t();
+        out_sensor
+            .split(',')
+            .find_map(|s| self.average_get(s, out_t))
     }
 
     // Return Vec of Strings listing all the sensor ids we have

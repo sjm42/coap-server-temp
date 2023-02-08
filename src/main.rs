@@ -7,14 +7,14 @@ use std::sync::Arc;
 mod coapserver;
 mod influxdb;
 mod sensordata;
-mod startup;
+mod config;
 mod tbuf;
 mod url;
 
 use coapserver::MyCoapServer;
 use influxdb::InfluxSender;
 use sensordata::{start_expire, MyData};
-use startup::*;
+use config::*;
 
 fn main() -> anyhow::Result<()> {
     let mut opts = OptsCommon::from_args();

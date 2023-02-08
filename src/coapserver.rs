@@ -1,7 +1,7 @@
 // coapserver.rs
 
 use super::sensordata::MyData;
-use super::startup::OptsCommon;
+use super::config::OptsCommon;
 use super::url::{MyResponse, UrlMap};
 
 use coap_lite::{CoapRequest, CoapResponse, RequestType as Method, ResponseType};

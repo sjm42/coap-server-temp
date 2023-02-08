@@ -2,7 +2,7 @@
 
 [package]
 name = "coap-server"
-version = "0.1.7"
+version = "0.2.0"
 authors = ["Sami J. Mäkinen <sjm@iki.fi>"]
 edition = "2021"
 resolver = "2"
@@ -18,7 +18,7 @@ influxdb-client = "0.1"
 log = "0.4"
 parking_lot = "0.12"
 structopt = "0.3"
-tokio = "1.24"
+tokio = "1.25"
 
 
 [build-dependencies]

@@ -1,7 +1,7 @@
 // influxdb.rs
 
 use super::sensordata::MyData;
-use super::startup;
+use super::config;
 
 use anyhow::anyhow;
 use chrono::*;
@@ -22,7 +22,7 @@ pub struct InfluxSender {
 }
 
 impl InfluxSender {
-    pub fn new(opts: &startup::OptsCommon, mydata: Arc<MyData>) -> Self {
+    pub fn new(opts: &config::OptsCommon, mydata: Arc<MyData>) -> Self {
         InfluxSender {
             mydata,
             interval: opts.send_interval,
