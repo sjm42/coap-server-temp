@@ -1,8 +1,8 @@
 # Cargo.toml
 
 [package]
-name = "coap-server"
-version = "0.2.0"
+name = "coap_server_temp"
+version = "0.3.0"
 authors = ["Sami J. Mäkinen <sjm@iki.fi>"]
 edition = "2021"
 resolver = "2"
@@ -11,14 +11,13 @@ resolver = "2"
 [dependencies]
 anyhow = "1.0"
 chrono = "0.4"
-coap = "0.12"
+coap-server = "0.1"
 coap-lite = "=0.9.1"    # keep in sync with dependency
 env_logger = "0.10"
 influxdb-client = "0.1"
 log = "0.4"
-parking_lot = "0.12"
 structopt = "0.3"
-tokio = "1.25"
+tokio = "1.26"
 
 
 [build-dependencies]

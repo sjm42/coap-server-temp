@@ -22,8 +22,6 @@ pub struct OptsCommon {
     pub average_out_t: u64,
     #[structopt(long, default_value = "300")]
     pub send_interval: i64,
-    #[structopt(long, parse(from_os_str))]
-    pub influx_binary: Option<OsString>,
     #[structopt(long, default_value = "http://127.0.0.1:8086")]
     pub db_url: String,
     #[structopt(long, default_value = "secret_token")]

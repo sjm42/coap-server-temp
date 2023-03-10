@@ -112,6 +112,10 @@ impl Tbuf {
         self.buf.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     pub fn average(&self, time_sec: u64) -> Option<f64> {
         for i in 0..self.averages_t.len() {
             if time_sec == self.averages_t[i] {
