@@ -4,6 +4,7 @@ use coap_lite::{CoapResponse, RequestType, ResponseType};
 use coap_server::app::{self, CoapError, Request, Response};
 use coap_server::{CoapServer, UdpTransport};
 use log::*;
+use once_cell::sync::OnceCell;
 use std::sync::{atomic, Arc};
 use std::{cmp::Ordering, net::SocketAddr};
 
@@ -17,7 +18,7 @@ pub struct MyState {
 }
 
 // This is for CoAP server because coap-server crate does not carry any state
-static mut MYSTATE: Option<MyState> = None;
+static MYSTATE: OnceCell<MyState> = OnceCell::new();
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -27,12 +28,13 @@ async fn main() -> anyhow::Result<()> {
     opts.start_pgm(env!("CARGO_BIN_NAME"));
 
     let mydata = Arc::new(MyData::new(&opts));
-    unsafe {
-        MYSTATE = Some(MyState {
+
+    MYSTATE
+        .set(MyState {
             mydata: mydata.clone(),
             counter: atomic::AtomicU64::new(0),
-        });
-    }
+        })
+        .ok();
 
     tokio::spawn(run_expire(mydata.clone(), opts.expire_interval));
     tokio::spawn(InfluxSender::new(&opts, mydata.clone()).run_db_send());
@@ -56,20 +58,16 @@ async fn main() -> anyhow::Result<()> {
         .await?)
 }
 
-// This is safe because MyData uses RwLock internally
 fn mydata() -> Arc<MyData> {
-    let s = unsafe { MYSTATE.as_ref().unwrap() };
-    s.mydata.clone()
+    MYSTATE.get().unwrap().mydata.clone()
 }
 
 fn req_id() -> u64 {
-    unsafe {
-        MYSTATE
-            .as_ref()
-            .unwrap()
-            .counter
-            .fetch_add(1, atomic::Ordering::Relaxed)
-    }
+    MYSTATE
+        .get()
+        .unwrap()
+        .counter
+        .fetch_add(1, atomic::Ordering::Relaxed)
 }
 
 fn log_request(request: &Request<SocketAddr>) {

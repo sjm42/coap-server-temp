@@ -184,6 +184,7 @@ dependencies = [
  "env_logger 0.10.0",
  "influxdb-client",
  "log",
+ "once_cell",
  "structopt",
  "tokio",
 ]

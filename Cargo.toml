@@ -16,6 +16,7 @@ coap-lite = "=0.9.1"    # keep in sync with dependency
 env_logger = "0.10"
 influxdb-client = "0.1"
 log = "0.4"
+once_cell = "1.17"
 structopt = "0.3"
 tokio = "1.26"
 
