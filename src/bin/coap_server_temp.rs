@@ -54,13 +54,6 @@ async fn main() -> anyhow::Result<()> {
                 .resource(app::resource("/").default_handler(resp_default)),
         )
         .await?)
-
-    // Enter CoAP server loop
-    // let server = MyCoapServer::new(&opts, mydata)?;
-    // server.run()?;
-
-    // Normally never reached
-    // Ok(())
 }
 
 // This is safe because MyData uses RwLock internally
