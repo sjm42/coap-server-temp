@@ -2,7 +2,7 @@
 
 [package]
 name = "coap_server_temp"
-version = "0.3.2"
+version = "0.4.0"
 authors = ["Sami J. Mäkinen <sjm@iki.fi>"]
 edition = "2021"
 resolver = "2"
@@ -12,9 +12,10 @@ resolver = "2"
 anyhow = "1.0"
 chrono = "0.4"
 coap-server = "0.1"
-coap-lite = "=0.9.1"    # keep in sync with dependency
+coap-lite = "=0.9.1" # keep in sync with dependency
 env_logger = "0.10"
-influxdb-client = "0.1"
+futures = "0.3"
+influxdb2 = "0.4"
 log = "0.4"
 once_cell = "1.17"
 structopt = "0.3"

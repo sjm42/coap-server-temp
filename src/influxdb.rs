@@ -4,6 +4,8 @@ use super::config;
 use super::sensordata::MyData;
 
 use chrono::*;
+use futures::stream;
+use influxdb2::{api::write::TimestampPrecision, models::DataPoint, Client};
 use log::*;
 use std::sync::Arc;
 use tokio::time::{sleep, Duration};
@@ -64,32 +66,32 @@ impl InfluxSender {
 
             for datapoint in self.mydata.averages_db().await {
                 points.push(
-                    influxdb_client::Point::new(&self.measurement)
+                    DataPoint::builder(&self.measurement)
                         .tag("sensor", datapoint.0.as_str())
                         .field("value", datapoint.1)
-                        .timestamp(timestamp_i),
+                        .timestamp(timestamp_i)
+                        .build()?,
                 );
             }
 
             if !points.is_empty() {
                 debug!("influxdb data: {points:?}");
-
-                // We are creating a new client each time
-                // -- usually once per minute, not a performance problem
-                let influx_client = influxdb_client::Client::new(&url, &token)
-                    .with_org(&org)
-                    .with_bucket(&bucket)
-                    .with_precision(influxdb_client::Precision::S);
-
+                let n_points = points.len();
+                let influx_client = Client::new(&url, &org, &token);
                 match influx_client
-                    .insert_points(&points, influxdb_client::TimestampOptions::FromPoint)
+                    .write_with_precision(
+                        &bucket,
+                        stream::iter(points),
+                        TimestampPrecision::Seconds,
+                    )
                     .await
                 {
-                    Ok(_) => info!("****** InfluxDB: inserted {} points", points.len()),
+                    Ok(_) => info!("****** InfluxDB: inserted {n_points} points"),
                     Err(e) => error!("InfluxDB client error: {e:?}"),
                 }
             }
         }
     }
 }
+
 // EOF
