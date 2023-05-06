@@ -149,25 +149,24 @@ dependencies = [
 
 [[package]]
 name = "coap-lite"
-version = "0.9.1"
+version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3b4859ead43cef7e14593c5238cb3dd8800f41ade206bdf08c44c51f2d943fd3"
+checksum = "31c0436bd40ab15b2eb784eb90baf5b72651fff5977dc03259ab5c1b05fdf1c5"
 dependencies = [
  "lru_time_cache",
 ]
 
 [[package]]
 name = "coap-server"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2034f3aae978d2f5921cbe63d9bf2a6969977adfdc9bd39132f6aab832923a2a"
+version = "0.1.3"
+source = "git+https://github.com/sjm42/coap-server-rs.git#b47ca7cb10b14e67cc2555a8273d68a5dc8c27b3"
 dependencies = [
  "anyhow",
  "async-trait",
  "bytes",
  "coap-lite",
  "dyn-clone",
- "env_logger 0.9.3",
+ "env_logger",
  "futures",
  "log",
  "pin-project",
@@ -181,14 +180,14 @@ dependencies = [
 
 [[package]]
 name = "coap_server_temp"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "anyhow",
  "build-data",
  "chrono",
  "coap-lite",
  "coap-server",
- "env_logger 0.10.0",
+ "env_logger",
  "futures",
  "influxdb2",
  "log",
@@ -329,19 +328,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "071a31f4ee85403370b58aca746f01041ede6f0da2730960ad001edc2b71b394"
 dependencies = [
  "cfg-if",
-]
-
-[[package]]
-name = "env_logger"
-version = "0.9.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a12e6657c4c97ebab115a42dcee77225f7f482cdd841cf7088c657a42e9e00e7"
-dependencies = [
- "atty",
- "humantime",
- "log",
- "regex",
- "termcolor",
 ]
 
 [[package]]
