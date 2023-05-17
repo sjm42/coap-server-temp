@@ -2,7 +2,7 @@
 
 [package]
 name = "coap_server_temp"
-version = "0.4.2"
+version = "0.4.3"
 authors = ["Sami J. Mäkinen <sjm@iki.fi>"]
 edition = "2021"
 resolver = "2"
