@@ -203,8 +203,8 @@ dependencies = [
 
 [[package]]
 name = "coap-server"
-version = "0.1.4"
-source = "git+https://github.com/sjm42/coap-server-rs.git#0057e947e6f04e926fd204cc6ae156f8a5db037a"
+version = "0.1.5"
+source = "git+https://github.com/sjm42/coap-server-rs.git#faf6af351be20f74d2c94b1f42b8c02395ba7256"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -225,7 +225,7 @@ dependencies = [
 
 [[package]]
 name = "coap_server_temp"
-version = "0.4.6"
+version = "0.4.7"
 dependencies = [
  "anyhow",
  "build-data",
