@@ -2,7 +2,9 @@
 
 use coap_lite::{CoapResponse, RequestType, ResponseType};
 use coap_server::app::{self, CoapError, Request, Response};
-use coap_server::{CoapServer, UdpTransport};
+// use coap_server::{CoapServer, UdpTransport};
+use coap_server::CoapServer;
+use coap_server_tokio::transport::udp::UdpTransport;
 use log::*;
 use once_cell::sync::OnceCell;
 use std::sync::{atomic, Arc};
