@@ -2,7 +2,7 @@
 
 [package]
 name = "coap_server_temp"
-version = "0.5.0"
+version = "0.5.1"
 authors = ["Sami J. Mäkinen <sjm@iki.fi>"]
 edition = "2021"
 resolver = "2"
@@ -29,7 +29,6 @@ build-data = "0.1"
 
 [profile.release]
 lto = true
-opt-level = 3 #default
-# opt-level = 'z'  # Optimize for size.
+opt-level = 3
 
 # EOF

@@ -55,6 +55,7 @@ async fn main() -> anyhow::Result<()> {
                 .resource(app::resource("/list_sensors").get(resp_get_list_sensors))
                 .resource(app::resource("/set_outsensor").post(resp_post_set_outsensor))
                 .resource(app::resource("/store_temp").post(resp_post_store_temp))
+                .resource(app::resource("/store").post(resp_post_store_temp))
                 .resource(app::resource("/").default_handler(resp_default)),
         )
         .await?)
