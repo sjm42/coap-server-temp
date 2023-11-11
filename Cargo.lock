@@ -255,7 +255,7 @@ dependencies = [
 
 [[package]]
 name = "coap_server_temp"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "anyhow",
  "build-data",
