@@ -1,38 +1,37 @@
 // options.rs
 
+use clap::Parser;
 use log::*;
 use std::env;
 pub use std::ffi::OsString;
-pub use structopt::StructOpt;
 
-/// Note: internal InfluxDB client is used unless --influx-binary option is set.
-#[derive(Clone, Debug, Default, StructOpt)]
+#[derive(Clone, Debug, Default, Parser)]
 pub struct OptsCommon {
-    #[structopt(short, long)]
+    #[arg(short, long)]
     pub debug: bool,
-    #[structopt(short, long)]
+    #[arg(short, long)]
     pub trace: bool,
-    #[structopt(short, long, default_value = "127.0.0.1:5683")]
+    #[arg(short, long, default_value = "127.0.0.1:5683")]
     pub listen: String,
-    #[structopt(short = "s", long, default_value = "0000000000000000")]
+    #[arg(long, default_value = "000")]
     pub out_sensor: String,
-    #[structopt(long, default_value = "900")]
+    #[arg(long, default_value_t = 900)]
     pub average_db_t: u64,
-    #[structopt(long, default_value = "900")]
+    #[arg(long, default_value_t = 900)]
     pub average_out_t: u64,
-    #[structopt(long, default_value = "300")]
+    #[arg(long, default_value_t = 300)]
     pub send_interval: i64,
-    #[structopt(long, default_value = "http://127.0.0.1:8086")]
+    #[arg(long, default_value = "http://127.0.0.1:8086")]
     pub db_url: String,
-    #[structopt(long, default_value = "secret_token")]
+    #[arg(long, default_value = "secret_token")]
     pub token: String,
-    #[structopt(long, default_value = "myorg")]
+    #[arg(long, default_value = "myorg")]
     pub org: String,
-    #[structopt(long, default_value = "temperature")]
+    #[arg(long, default_value = "temperature")]
     pub bucket: String,
-    #[structopt(long, default_value = "temperature")]
+    #[arg(long, default_value = "temperature")]
     pub measurement: String,
-    #[structopt(long, default_value = "30")]
+    #[arg(long, default_value_t = 30)]
     pub expire_interval: u64,
 }
 impl OptsCommon {
