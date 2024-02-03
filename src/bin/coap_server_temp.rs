@@ -52,6 +52,7 @@ async fn main() -> anyhow::Result<()> {
             app::new()
                 .resource(app::resource("/avg_out").get(resp_get_avg_out))
                 .resource(app::resource("/dump").get(resp_get_dump))
+                .resource(app::resource("/sensor").get(resp_get_sensor))
                 .resource(app::resource("/list_sensors").get(resp_get_list_sensors))
                 .resource(app::resource("/set_outsensor").post(resp_post_set_outsensor))
                 .resource(app::resource("/store_temp").post(resp_post_store_temp))
@@ -101,6 +102,26 @@ async fn resp_default(request: Request<SocketAddr>) -> Result<Response, CoapErro
     let mut resp = request.new_response();
     resp.set_status(ResponseType::NotFound);
     resp.message.payload = "NOT FOUND".into();
+
+    log_response(&resp);
+    Ok(resp)
+}
+
+async fn resp_get_sensor(request: Request<SocketAddr>) -> Result<Response, CoapError> {
+    log_request(&request);
+
+    let path = &request.unmatched_path;
+    let mut resp = request.new_response();
+    resp.set_status(ResponseType::NotFound);
+    resp.message.payload = "NOT FOUND".into();
+
+    if path.len() > 0 {
+        let t = mydata().average_out_t().await;
+        if let Some(d) = mydata().average_get(&path[0], t).await {
+            resp.set_status(ResponseType::Content);
+            resp.message.payload = format!("{d:.2}").into();
+        }
+    }
 
     log_response(&resp);
     Ok(resp)
