@@ -115,7 +115,7 @@ async fn resp_get_sensor(request: Request<SocketAddr>) -> Result<Response, CoapE
     resp.set_status(ResponseType::NotFound);
     resp.message.payload = "NOT FOUND".into();
 
-    if path.len() > 0 {
+    if !path.is_empty() {
         let t = mydata().average_out_t().await;
         if let Some(d) = mydata().average_get(&path[0], t).await {
             resp.set_status(ResponseType::Content);
