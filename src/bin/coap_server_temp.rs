@@ -193,14 +193,18 @@ async fn resp_post_store_temp(request: Request<SocketAddr>) -> Result<Response, 
     log_request(&request);
 
     let mut resp = request.new_response();
-    let payload = String::from_utf8_lossy(&request.original.message.payload);
+    let payload = String::from_utf8_lossy(&request.original.message.payload).into_owned();
     match payload.len().cmp(&0) {
         Ordering::Greater => {
             let indata = payload.split_whitespace().collect::<Vec<&str>>();
             if indata.len() == 2 {
                 match indata[1].parse::<f32>() {
                     Ok(temp) => {
-                        mydata().add(indata[0], temp).await;
+                        let mydata = mydata();
+                        let name = indata[0].to_string();
+                        tokio::spawn(async move {
+                            mydata.add(name, temp).await;
+                        });
                         resp.set_status(ResponseType::Content);
                         resp.message.payload = "OK".into();
                     }
