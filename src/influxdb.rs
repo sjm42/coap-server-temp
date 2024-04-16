@@ -1,14 +1,15 @@
 // influxdb.rs
 
-use super::config;
-use super::sensordata::MyData;
+use std::sync::Arc;
 
 use chrono::*;
 use futures::stream;
-use influxdb2::{api::write::TimestampPrecision, models::DataPoint, Client};
-use log::*;
-use std::sync::Arc;
-use tokio::time::{sleep, Duration};
+use influxdb2::{api::write::TimestampPrecision, Client, models::DataPoint};
+use tokio::time::{Duration, sleep};
+use tracing::*;
+
+use super::config;
+use super::sensordata::MyData;
 
 #[derive(Clone)]
 pub struct InfluxSender {

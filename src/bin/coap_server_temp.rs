@@ -1,18 +1,19 @@
 // bin/coap_server_temp.rs
 
-use coap_server_temp::*;
-use sensordata::{run_expire, MyData};
+use std::{cmp::Ordering, net::SocketAddr};
+use std::sync::{Arc, atomic};
 
 use clap::Parser;
 use coap_lite::{CoapResponse, RequestType, ResponseType};
 use coap_server::app::{self, CoapError, Request, Response};
 use coap_server::CoapServer;
 use coap_server_tokio::transport::udp::UdpTransport;
-use influxdb::InfluxSender;
-use log::*;
 use once_cell::sync::OnceCell;
-use std::sync::{atomic, Arc};
-use std::{cmp::Ordering, net::SocketAddr};
+use tracing::*;
+
+use coap_server_temp::*;
+use influxdb::InfluxSender;
+use sensordata::{MyData, run_expire};
 
 pub struct MyState {
     mydata: Arc<MyData>,
@@ -25,7 +26,7 @@ static MYSTATE: OnceCell<MyState> = OnceCell::new();
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let mut opts = OptsCommon::parse();
-    opts.finish()?;
+    opts.finalize()?;
     debug!("Global config: {opts:?}");
     opts.start_pgm(env!("CARGO_BIN_NAME"));
 

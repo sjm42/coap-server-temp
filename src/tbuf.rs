@@ -1,7 +1,8 @@
 // tbuf.rs
 
-use log::*;
 use std::time::*;
+
+use tracing::*;
 
 #[derive(Debug)]
 pub struct Tdata {
@@ -12,8 +13,8 @@ pub struct Tdata {
 #[allow(dead_code)]
 impl Tdata {
     pub fn new<A>(args: A) -> Tdata
-    where
-        A: Into<Tdata>,
+        where
+            A: Into<Tdata>,
     {
         args.into()
     }
@@ -24,6 +25,7 @@ impl Tdata {
         self.data
     }
 }
+
 impl From<f32> for Tdata {
     fn from(d: f32) -> Tdata {
         Tdata {
@@ -32,6 +34,7 @@ impl From<f32> for Tdata {
         }
     }
 }
+
 impl From<f64> for Tdata {
     fn from(d: f64) -> Tdata {
         Tdata {
@@ -40,6 +43,7 @@ impl From<f64> for Tdata {
         }
     }
 }
+
 impl From<(f32, SystemTime)> for Tdata {
     fn from((d, t): (f32, SystemTime)) -> Tdata {
         Tdata {
@@ -48,6 +52,7 @@ impl From<(f32, SystemTime)> for Tdata {
         }
     }
 }
+
 impl From<(SystemTime, f32)> for Tdata {
     fn from((t, d): (SystemTime, f32)) -> Tdata {
         Tdata {
@@ -56,6 +61,7 @@ impl From<(SystemTime, f32)> for Tdata {
         }
     }
 }
+
 impl From<(f64, SystemTime)> for Tdata {
     fn from((d, t): (f64, SystemTime)) -> Tdata {
         Tdata {
@@ -64,6 +70,7 @@ impl From<(f64, SystemTime)> for Tdata {
         }
     }
 }
+
 impl From<(SystemTime, f64)> for Tdata {
     fn from((t, d): (SystemTime, f64)) -> Tdata {
         Tdata {

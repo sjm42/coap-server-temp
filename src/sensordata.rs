@@ -1,11 +1,12 @@
 // sensordata.rs
 
+use std::{collections::HashMap, sync::Arc, time};
+
+use tokio::sync::RwLock;
+use tracing::*;
+
 use super::config;
 use super::tbuf::{Tbuf, Tdata};
-
-use log::*;
-use std::{collections::HashMap, sync::Arc, time};
-use tokio::sync::RwLock;
 
 // Note:
 // avgs_t[0] is used for returning the outside temp average
