@@ -173,9 +173,9 @@ checksum = "5c8214115b7bf84099f1309324e63141d4c5d7cc26862f97a0a857dbefe165bd"
 
 [[package]]
 name = "build-data"
-version = "0.2.1"
+version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eda20fcece9c23f3c3f4c2751a8a5ca9491c05fa7a69920af65953c3b39b7ce4"
+checksum = "23084982b6264a75acfd469b97ce0ef9301e154e7af51fec388e695eedf01bc1"
 dependencies = [
  "chrono",
  "safe-regex",
