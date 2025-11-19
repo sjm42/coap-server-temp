@@ -1,7 +1,7 @@
 // bin/coap_server_temp.rs
 
+use std::sync::{atomic, Arc};
 use std::{cmp::Ordering, net::SocketAddr};
-use std::sync::{Arc, atomic};
 
 use clap::Parser;
 use coap_lite::{CoapResponse, RequestType, ResponseType};
@@ -13,7 +13,7 @@ use tracing::*;
 
 use coap_server_temp::*;
 use influxdb::InfluxSender;
-use sensordata::{MyData, run_expire};
+use sensordata::{run_expire, MyData};
 
 pub struct MyState {
     mydata: Arc<MyData>,
@@ -23,6 +23,11 @@ pub struct MyState {
 // This is for CoAP server because coap-server crate does not carry any state
 static MYSTATE: OnceCell<MyState> = OnceCell::new();
 
+pub struct ServerState {
+    mydata: MyData,
+    counter: atomic::AtomicU64,
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let mut opts = OptsCommon::parse();
@@ -31,13 +36,17 @@ async fn main() -> anyhow::Result<()> {
     opts.start_pgm(env!("CARGO_BIN_NAME"));
 
     let mydata = Arc::new(MyData::new(&opts));
-
     MYSTATE
         .set(MyState {
             mydata: mydata.clone(),
             counter: atomic::AtomicU64::new(0),
         })
         .ok();
+
+    let srv_state = Arc::new(ServerState {
+        mydata: MyData::new(&opts),
+        counter: atomic::AtomicU64::new(0),
+    });
 
     tokio::spawn(run_expire(mydata.clone(), opts.expire_interval));
     tokio::spawn(InfluxSender::new(&opts, mydata.clone()).run_db_send());
@@ -58,7 +67,7 @@ async fn main() -> anyhow::Result<()> {
                 .resource(app::resource("/set_outsensor").post(resp_post_set_outsensor))
                 .resource(app::resource("/store_temp").post(resp_post_store_temp))
                 .resource(app::resource("/store").post(resp_post_store_temp))
-                .resource(app::resource("/").default_handler(resp_default)),
+                .resource(app::resource("/").default_handler(move |req| resp_default(req, srv_state.clone()))),
         )
         .await?)
 }
@@ -97,7 +106,7 @@ fn log_response(response: &CoapResponse) {
     info!("--> {code:?} {data}");
 }
 
-async fn resp_default(request: Request<SocketAddr>) -> Result<Response, CoapError> {
+async fn resp_default(request: Request<SocketAddr>, mystate: Arc<ServerState>) -> Result<Response, CoapError> {
     log_request(&request);
 
     let mut resp = request.new_response();
