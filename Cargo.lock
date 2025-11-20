@@ -273,7 +273,7 @@ dependencies = [
 
 [[package]]
 name = "coap_server_temp"
-version = "1.4.0"
+version = "1.4.1"
 dependencies = [
  "anyhow",
  "build-data",
@@ -284,7 +284,6 @@ dependencies = [
  "coap-server-tokio",
  "futures",
  "influxdb2",
- "once_cell",
  "tokio",
  "tracing",
  "tracing-subscriber",

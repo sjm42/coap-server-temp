@@ -1,32 +1,23 @@
 // bin/coap_server_temp.rs
 
-use std::sync::{atomic, Arc};
-use std::{cmp::Ordering, net::SocketAddr};
+use std::{
+    net::SocketAddr,
+    sync::{atomic, Arc},
+    time,
+};
 
 use clap::Parser;
 use coap_lite::{CoapResponse, RequestType, ResponseType};
-use coap_server::app::{self, CoapError, Request, Response};
-use coap_server::CoapServer;
+use coap_server::{
+    app::{self, CoapError, Request, Response},
+    CoapServer,
+};
 use coap_server_tokio::transport::udp::UdpTransport;
-use once_cell::sync::OnceCell;
 use tracing::*;
 
 use coap_server_temp::*;
 use influxdb::InfluxSender;
-use sensordata::{run_expire, MyData};
-
-pub struct MyState {
-    mydata: Arc<MyData>,
-    counter: atomic::AtomicU64,
-}
-
-// This is for CoAP server because coap-server crate does not carry any state
-static MYSTATE: OnceCell<MyState> = OnceCell::new();
-
-pub struct ServerState {
-    mydata: MyData,
-    counter: atomic::AtomicU64,
-}
+use sensordata::MyData;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -35,21 +26,13 @@ async fn main() -> anyhow::Result<()> {
     debug!("Global config: {opts:?}");
     opts.start_pgm(env!("CARGO_BIN_NAME"));
 
-    let mydata = Arc::new(MyData::new(&opts));
-    MYSTATE
-        .set(MyState {
-            mydata: mydata.clone(),
-            counter: atomic::AtomicU64::new(0),
-        })
-        .ok();
-
     let srv_state = Arc::new(ServerState {
         mydata: MyData::new(&opts),
         counter: atomic::AtomicU64::new(0),
     });
 
-    tokio::spawn(run_expire(mydata.clone(), opts.expire_interval));
-    tokio::spawn(InfluxSender::new(&opts, mydata.clone()).run_db_send());
+    tokio::spawn(run_expire(srv_state.clone(), opts.expire_interval));
+    tokio::spawn(InfluxSender::new(&opts, srv_state.clone()).run_db_send());
 
     let addr = opts.listen.to_string();
 
@@ -60,32 +43,53 @@ async fn main() -> anyhow::Result<()> {
     Ok(server
         .serve(
             app::new()
-                .resource(app::resource("/avg_out").get(resp_get_avg_out))
-                .resource(app::resource("/dump").get(resp_get_dump))
-                .resource(app::resource("/sensor").get(resp_get_sensor))
-                .resource(app::resource("/list_sensors").get(resp_get_list_sensors))
-                .resource(app::resource("/set_outsensor").post(resp_post_set_outsensor))
-                .resource(app::resource("/store_temp").post(resp_post_store_temp))
-                .resource(app::resource("/store").post(resp_post_store_temp))
-                .resource(app::resource("/").default_handler(move |req| resp_default(req, srv_state.clone()))),
+                .resource(app::resource("/avg_out").get({
+                    let state = srv_state.clone();
+                    move |req| resp_get_avg_out(req, state.clone())
+                }))
+                .resource(app::resource("/dump").get({
+                    let state = srv_state.clone();
+                    move |req| resp_get_dump(req, state.clone())
+                }))
+                .resource(app::resource("/list_sensors").get({
+                    let state = srv_state.clone();
+                    move |req| resp_get_list_sensors(req, state.clone())
+                }))
+                .resource(app::resource("/sensor").get({
+                    let state = srv_state.clone();
+                    move |req| resp_get_sensor(req, state.clone())
+                }))
+                .resource(app::resource("/set_outsensor").post({
+                    let state = srv_state.clone();
+                    move |req| resp_post_set_outsensor(req, state.clone())
+                }))
+                .resource(app::resource("/store_temp").post({
+                    let state = srv_state.clone();
+                    move |req| resp_post_store_temp(req, state.clone())
+                }))
+                .resource(app::resource("/store").post({
+                    let state = srv_state.clone();
+                    move |req| resp_post_store_temp(req, state.clone())
+                }))
+                .resource(app::resource("/").default_handler({
+                    let state = srv_state.clone();
+                    move |req| resp_default(req, state.clone())
+                })),
         )
         .await?)
 }
 
-fn mydata() -> Arc<MyData> {
-    MYSTATE.get().unwrap().mydata.clone()
+pub async fn run_expire(mystate: Arc<ServerState>, interval: u64) {
+    loop {
+        mystate.mydata.expire(interval).await;
+        error!("Expire task exited, should not happen");
+        tokio::time::sleep(time::Duration::new(10, 0)).await;
+        error!("Restarting expire task...");
+    }
 }
 
-fn req_id() -> u64 {
-    MYSTATE
-        .get()
-        .unwrap()
-        .counter
-        .fetch_add(1, atomic::Ordering::Relaxed)
-}
-
-fn log_request(request: &Request<SocketAddr>) {
-    let id = req_id();
+fn log_request(request: &Request<SocketAddr>, mystate: &mut Arc<ServerState>) {
+    let id = mystate.counter.fetch_add(1, atomic::Ordering::Relaxed);
     let ip_str = match request.original.source {
         None => "<none>".into(),
         Some(ip) => ip.to_string(),
@@ -106,42 +110,14 @@ fn log_response(response: &CoapResponse) {
     info!("--> {code:?} {data}");
 }
 
-async fn resp_default(request: Request<SocketAddr>, mystate: Arc<ServerState>) -> Result<Response, CoapError> {
-    log_request(&request);
+async fn resp_get_avg_out(
+    request: Request<SocketAddr>,
+    mut mystate: Arc<ServerState>,
+) -> Result<Response, CoapError> {
+    log_request(&request, &mut mystate);
 
     let mut resp = request.new_response();
-    resp.set_status(ResponseType::NotFound);
-    resp.message.payload = "NOT FOUND".into();
-
-    log_response(&resp);
-    Ok(resp)
-}
-
-async fn resp_get_sensor(request: Request<SocketAddr>) -> Result<Response, CoapError> {
-    log_request(&request);
-
-    let path = &request.unmatched_path;
-    let mut resp = request.new_response();
-    resp.set_status(ResponseType::NotFound);
-    resp.message.payload = "NOT FOUND".into();
-
-    if !path.is_empty() {
-        let t = mydata().average_out_t().await;
-        if let Some(d) = mydata().average_get(&path[0], t).await {
-            resp.set_status(ResponseType::Content);
-            resp.message.payload = format!("{d:.2}").into();
-        }
-    }
-
-    log_response(&resp);
-    Ok(resp)
-}
-
-async fn resp_get_avg_out(request: Request<SocketAddr>) -> Result<Response, CoapError> {
-    log_request(&request);
-
-    let mut resp = request.new_response();
-    match mydata().average_out().await {
+    match mystate.mydata.average_out().await {
         None => {
             resp.set_status(ResponseType::ServiceUnavailable);
             resp.message.payload = "NO DATA".into();
@@ -156,11 +132,14 @@ async fn resp_get_avg_out(request: Request<SocketAddr>) -> Result<Response, Coap
     Ok(resp)
 }
 
-async fn resp_get_dump(request: Request<SocketAddr>) -> Result<Response, CoapError> {
-    log_request(&request);
+async fn resp_get_dump(
+    request: Request<SocketAddr>,
+    mut mystate: Arc<ServerState>,
+) -> Result<Response, CoapError> {
+    log_request(&request, &mut mystate);
 
     let mut resp = request.new_response();
-    mydata().dump().await;
+    mystate.mydata.dump().await;
     resp.set_status(ResponseType::Content);
     resp.message.payload = "SEE SERVER LOG".into();
 
@@ -168,30 +147,36 @@ async fn resp_get_dump(request: Request<SocketAddr>) -> Result<Response, CoapErr
     Ok(resp)
 }
 
-async fn resp_get_list_sensors(request: Request<SocketAddr>) -> Result<Response, CoapError> {
-    log_request(&request);
+async fn resp_get_list_sensors(
+    request: Request<SocketAddr>,
+    mut mystate: Arc<ServerState>,
+) -> Result<Response, CoapError> {
+    log_request(&request, &mut mystate);
 
     let mut resp = request.new_response();
     resp.set_status(ResponseType::Content);
-    resp.message.payload = mydata().sensors_list().await.join(" ").into();
+    resp.message.payload = mystate.mydata.sensors_list().await.join(" ").into();
 
     log_response(&resp);
     Ok(resp)
 }
 
-async fn resp_post_set_outsensor(request: Request<SocketAddr>) -> Result<Response, CoapError> {
-    log_request(&request);
+async fn resp_get_sensor(
+    request: Request<SocketAddr>,
+    mut mystate: Arc<ServerState>,
+) -> Result<Response, CoapError> {
+    log_request(&request, &mut mystate);
 
+    let path = &request.unmatched_path;
     let mut resp = request.new_response();
-    let payload = &String::from_utf8_lossy(&request.original.message.payload);
-    match payload.len().cmp(&0) {
-        Ordering::Greater => {
+    resp.set_status(ResponseType::NotFound);
+    resp.message.payload = "NOT FOUND".into();
+
+    if !path.is_empty() {
+        let t = mystate.mydata.average_out_t().await;
+        if let Some(d) = mystate.mydata.average_get(&path[0], t).await {
             resp.set_status(ResponseType::Content);
-            resp.message.payload = "OK".into();
-        }
-        _ => {
-            resp.set_status(ResponseType::BadRequest);
-            resp.message.payload = "NO DATA".into();
+            resp.message.payload = format!("{d:.2}").into();
         }
     }
 
@@ -199,43 +184,77 @@ async fn resp_post_set_outsensor(request: Request<SocketAddr>) -> Result<Respons
     Ok(resp)
 }
 
-async fn resp_post_store_temp(request: Request<SocketAddr>) -> Result<Response, CoapError> {
-    log_request(&request);
+async fn resp_post_set_outsensor(
+    request: Request<SocketAddr>,
+    mut mystate: Arc<ServerState>,
+) -> Result<Response, CoapError> {
+    log_request(&request, &mut mystate);
 
     let mut resp = request.new_response();
-    let payload = String::from_utf8_lossy(&request.original.message.payload).into_owned();
-    match payload.len().cmp(&0) {
-        Ordering::Greater => {
-            let indata = payload.split_whitespace().collect::<Vec<&str>>();
-            if indata.len() == 2 {
-                match indata[1].parse::<f32>() {
-                    Ok(temp) => {
-                        let mydata = mydata();
-                        let name = indata[0].to_string();
-                        tokio::spawn(async move {
-                            mydata.add(name, temp).await;
-                        });
-                        resp.set_status(ResponseType::Content);
-                        resp.message.payload = "OK".into();
-                    }
-                    Err(_) => {
-                        resp.set_status(ResponseType::BadRequest);
-                        resp.message.payload = "INVALID NUMBER".into();
-                    }
-                }
-            } else {
-                resp.set_status(ResponseType::BadRequest);
-                resp.message.payload = "INVALID DATA".into();
-            }
-        }
-        _ => {
-            resp.set_status(ResponseType::BadRequest);
-            resp.message.payload = "NO DATA".into();
-        }
-    }
+    let req_payload = &String::from_utf8_lossy(&request.original.message.payload);
+    resp.message.payload = if req_payload.is_empty() {
+        resp.set_status(ResponseType::BadRequest);
+        "NO DATA".into()
+    } else {
+        mystate.mydata.set_outsensor(req_payload).await;
+        resp.set_status(ResponseType::Content);
+        "OK".into()
+    };
 
     log_response(&resp);
     Ok(resp)
 }
 
+async fn resp_post_store_temp(
+    request: Request<SocketAddr>,
+    mut mystate: Arc<ServerState>,
+) -> Result<Response, CoapError> {
+    log_request(&request, &mut mystate);
+
+    let mut resp = request.new_response();
+    let req_payload = String::from_utf8_lossy(&request.original.message.payload);
+
+    resp.message.payload = if req_payload.is_empty() {
+        resp.set_status(ResponseType::BadRequest);
+        "NO DATA".into()
+    } else {
+        let indata = req_payload.split_whitespace().collect::<Vec<&str>>();
+        if indata.len() == 2 {
+            match indata[1].parse::<f32>() {
+                Ok(temp) => {
+                    let name = indata[0].to_string();
+                    tokio::spawn(async move {
+                        mystate.mydata.add(name, temp).await;
+                    });
+                    resp.set_status(ResponseType::Content);
+                    "OK".into()
+                }
+                Err(_) => {
+                    resp.set_status(ResponseType::BadRequest);
+                    "INVALID NUMBER".into()
+                }
+            }
+        } else {
+            resp.set_status(ResponseType::BadRequest);
+            "INVALID DATA".into()
+        }
+    };
+
+    log_response(&resp);
+    Ok(resp)
+}
+
+async fn resp_default(
+    request: Request<SocketAddr>,
+    mut mystate: Arc<ServerState>,
+) -> Result<Response, CoapError> {
+    log_request(&request, &mut mystate);
+
+    let mut resp = request.new_response();
+    resp.set_status(ResponseType::NotFound);
+    resp.message.payload = "NOT FOUND".into();
+
+    log_response(&resp);
+    Ok(resp)
+}
 // EOF

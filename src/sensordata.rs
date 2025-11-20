@@ -1,6 +1,6 @@
 // sensordata.rs
 
-use std::{collections::HashMap, sync::Arc, time};
+use std::{collections::HashMap, time};
 
 use tokio::sync::RwLock;
 use tracing::*;
@@ -21,15 +21,6 @@ pub struct MyData {
     averages_t: RwLock<Vec<u64>>,
 }
 
-pub async fn run_expire(mydata: Arc<MyData>, interval: u64) {
-    loop {
-        mydata.expire(interval).await;
-        error!("Expire task exited, should not happen");
-        tokio::time::sleep(time::Duration::new(10, 0)).await;
-        error!("Restarting expire task...");
-    }
-}
-
 #[allow(dead_code)]
 impl MyData {
     pub fn new(opts: &config::OptsCommon) -> Self {
@@ -40,7 +31,7 @@ impl MyData {
         }
     }
 
-    async fn expire(&self, interval: u64) {
+    pub async fn expire(&self, interval: u64) {
         let wait_duration = time::Duration::new(interval, 0);
         loop {
             tokio::time::sleep(wait_duration).await;

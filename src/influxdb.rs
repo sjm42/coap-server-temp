@@ -4,16 +4,16 @@ use std::sync::Arc;
 
 use chrono::*;
 use futures::stream;
-use influxdb2::{api::write::TimestampPrecision, Client, models::DataPoint};
-use tokio::time::{Duration, sleep};
+use influxdb2::{api::write::TimestampPrecision, models::DataPoint, Client};
+use tokio::time::{sleep, Duration};
 use tracing::*;
 
 use super::config;
-use super::sensordata::MyData;
+use crate::*;
 
 #[derive(Clone)]
 pub struct InfluxSender {
-    mydata: Arc<MyData>,
+    mystate: Arc<ServerState>,
     interval: i64,
     url: String,
     token: String,
@@ -23,9 +23,9 @@ pub struct InfluxSender {
 }
 
 impl InfluxSender {
-    pub fn new(opts: &config::OptsCommon, mydata: Arc<MyData>) -> Self {
+    pub fn new(opts: &config::OptsCommon, mystate: Arc<ServerState>) -> Self {
         InfluxSender {
-            mydata,
+            mystate,
             interval: opts.send_interval,
             url: opts.db_url.clone(),
             token: opts.token.clone(),
@@ -65,7 +65,7 @@ impl InfluxSender {
 
             let mut points = Vec::with_capacity(16);
 
-            for datapoint in self.mydata.averages_db().await {
+            for datapoint in self.mystate.mydata.averages_db().await {
                 points.push(
                     DataPoint::builder(&self.measurement)
                         .tag("sensor", datapoint.0.as_str())
